@@ -1,3 +1,6 @@
 [submodule "util"]
 	path = util
 	url = https://github.com/lordofhyphens/cktutils.git
+[submodule "cudd"]
+	path = cudd
+	url = https://github.com/lordofhyphens/CUDD.git
