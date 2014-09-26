@@ -8,5 +8,6 @@ int main()
   ckt.read_bench("../bench/s27.bench");
   ckt.print();
   ckt.form_bdds();
+  std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
   return 0;
 }
