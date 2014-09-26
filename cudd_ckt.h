@@ -24,28 +24,28 @@ class CUDD_Circuit : public Circuit {
       std::cerr << "Building BDD.\n";
       for (std::vector<NODEC>::iterator iter = graph->begin(); iter < graph->end(); iter++)
       {
+        std::cerr << "Node " << iter->name << "\n";
         if (iter->typ == DFF || iter->typ == INPT)
         {
           // need to keep these intermediate BDDs until we use them for something.
+          std::cerr << "Putting " << (iter->typ == DFF ? "DFF" : "INPUT") << " " << iter->name << " in temps[" << std::distance(graph->begin(), iter) << "] as BDD var " << std::distance(graph->begin(), iter) << "\n";
           temps[std::distance(graph->begin(), iter)] = _manager.bddVar(std::distance(graph->begin(), iter));
-        }
-      }
-      for (std::vector<NODEC>::iterator iter = graph->begin(); iter < graph->end(); iter++)
-      {
-        if (iter->typ == INPT)
           continue;
-        if (iter->typ == DFF)
+        }
+        if (iter->typ == DFF_IN)
         {
           dff[std::distance(graph->begin(), iter)] = temps[iter->fin.begin()->second];
           continue;
         }
         std::vector<std::pair<std::string, uint32_t > >::iterator fins = iter->fin.begin();
-        BDD result = temps[fins->second];
+        std::cerr << "Fin: " << fins->first << "\n";
+        std::cerr << "Setting fin at key " << fins->second << " as result.\n";
+        BDD result = temps.at(fins->second);
         fins++;
         for (; fins < iter->fin.end(); fins++) 
         {
-        std::cerr << "Fin: " << fins->first << "\n";
-        // may not actually be correct.
+          std::cerr << "Fin: " << fins->first << "\n";
+          // may not actually be correct.
 
           switch(iter->typ) {
             case AND:
@@ -58,6 +58,7 @@ class CUDD_Circuit : public Circuit {
               result = result.Or(temps.at(fins->second));
               break;
             case NOR:
+              std::cerr << "fins->second " << fins->second << "\n";
               result = result.Nor(temps.at(fins->second));
               break;
             case XOR:
@@ -65,6 +66,9 @@ class CUDD_Circuit : public Circuit {
               break;
             case XNOR:
               result = result.Xnor(temps.at(fins->second));
+              break;
+            case FROM:
+              result = temps.at(fins->second);
               break;
           }
         }
