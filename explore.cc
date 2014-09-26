@@ -6,7 +6,7 @@ int main()
 {
   CUDD_Circuit ckt;
   ckt.read_bench("../bench/s27.bench");
-  ckt.form_bdds();
   ckt.print();
+  ckt.form_bdds();
   return 0;
 }
