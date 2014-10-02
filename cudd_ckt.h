@@ -15,6 +15,7 @@ class CUDD_Circuit : public Circuit {
     std::map<int, BDD> dff; // internals flipflops
     std::map<int, BDD> net; // all internal netlist bdds generated.
     std::map<int, BDD> pi;
+    std::map<int, int> dff_pair;
     CUDD_Circuit(Cudd manager) : Circuit(),  _manager(manager) { };
     CUDD_Circuit() : Circuit() { 
       _manager = Cudd(0,0);
@@ -68,8 +69,23 @@ class CUDD_Circuit : public Circuit {
 
         }
         net[pos] = result;
-        if (gate->typ == DFF_IN)
+
+        if (gate->typ == INPT)
+          pi[pos] = result;
+        if (gate->typ == DFF_IN) {
           dff[pos] = result;
+          std::cerr << "looking for matching var for " << gate->name << "\n";
+          for (std::vector<NODEC>::iterator gtmp = graph->begin(); gtmp < graph->end(); gtmp++)
+          {
+            std::cerr << "Checking " << gtmp->name << "\n";
+           if (gtmp->name.find(gate->name.substr(0,gate->name.size()-3).c_str(),0,gtmp->name.size()) != std::string::npos)
+           {
+             dff_pair[pos] = gtmp - graph->begin();
+             std::cerr << "found " << gtmp->name << " at pos " << gtmp-graph->begin()<<"\n";
+             break;
+             }
+          }
+        }
         if (gate->po && gate->typ != DFF_IN)
           po[pos] = result;
       }
