@@ -6,7 +6,7 @@
 #include <map>
 #include "cudd.h"
 #include "cuddObj.hh"
-
+extern int verbose_flag;
 class CUDD_Circuit : public Circuit { 
   private: 
     Cudd  _manager;
@@ -27,7 +27,8 @@ class CUDD_Circuit : public Circuit {
       {
         const int pos = gate - graph->begin();
         BDD result;
-        std::cerr << "Working on gate " << pos << ", " << gate->name<< "\n";
+        if (verbose_flag)
+          std::cerr << "Working on gate " << pos << ", " << gate->name<< "\n";
         switch(gate->typ)
         {
           case DFF:
@@ -43,12 +44,14 @@ class CUDD_Circuit : public Circuit {
             break;
           default:
             fin_t::iterator fin = gate->fin.begin();
-            std::cerr << "\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
+            if (verbose_flag)
+              std::cerr << "\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
             result = net[fin->second];
             fin++;
             // Make the BDD from the fanins.
             for (; fin < gate->fin.end(); fin++) {
-              std::cerr << "\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
+              if (verbose_flag)
+                std::cerr << "\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
               switch(gate->typ)
               {
                 case NAND:
@@ -74,16 +77,19 @@ class CUDD_Circuit : public Circuit {
           pi[pos] = result;
         if (gate->typ == DFF_IN) {
           dff[pos] = result;
-          std::cerr << "looking for matching var for " << gate->name << "\n";
+          if (verbose_flag)
+            std::cerr << "looking for matching var for " << gate->name << "\n";
           for (std::vector<NODEC>::iterator gtmp = graph->begin(); gtmp < graph->end(); gtmp++)
           {
-            std::cerr << "Checking " << gtmp->name << "\n";
-           if (gtmp->name.find(gate->name.substr(0,gate->name.size()-3).c_str(),0,gtmp->name.size()) != std::string::npos)
-           {
-             dff_pair[pos] = gtmp - graph->begin();
-             std::cerr << "found " << gtmp->name << " at pos " << gtmp-graph->begin()<<"\n";
-             break;
-             }
+            if (verbose_flag)
+              std::cerr << "Checking " << gtmp->name << "\n";
+            if (gtmp->name.find(gate->name.substr(0,gate->name.size()-3).c_str(),0,gtmp->name.size()) != std::string::npos)
+            {
+              dff_pair[pos] = gtmp - graph->begin();
+              if (verbose_flag)
+                std::cerr << "found " << gtmp->name << " at pos " << gtmp-graph->begin()<<"\n";
+              break;
+            }
           }
         }
         if (gate->po && gate->typ != DFF_IN)

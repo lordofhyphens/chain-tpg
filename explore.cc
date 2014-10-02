@@ -1,11 +1,12 @@
 #include "cudd_ckt.h"
 #include "util/vectors.h"
-int verbose_flag = 0;
 #include <algorithm>
 #include "cudd.h"
 
 #include <random>
 #include <ctime>
+
+int verbose_flag = 0;
 // Traverse a BDD for a single function and minterm 
 bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,bool> vars)
 {
@@ -32,8 +33,9 @@ int main()
   CUDD_Circuit ckt;
   srand(time(NULL));
   std::vector<std::map<unsigned int, bool> > inputs;
-  read_vectors(inputs, "../bench/s27.vec");
-  ckt.read_bench("../bench/s27.bench");
+  read_vectors(inputs, "../bench/c6288-1k.vec");
+  ckt.read_bench("../bench/c6288.bench");
+  std::cerr << "Printing ckt.\n";
   ckt.print();
   ckt.form_bdds();
 
