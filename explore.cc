@@ -7,7 +7,36 @@
 #include <ctime>
 
 int verbose_flag = 0;
-BDD img_recur(BDD f, Cudd manager);
+BDD img_recur(BDD f, const BDD C,  Cudd manager);
+
+void
+DFF_DumpDot(
+  const std::map<int, BDD>& nodes,
+  CUDD_Circuit ckt,
+  FILE * fp = stdout) 
+{
+    std::cerr << "Dumping to Dot\n";
+    DdManager *mgr = ckt.getManager().getManager();
+    int n = nodes.size();
+    DdNode **F = new DdNode *[n];
+    char ** inames = new char *[ckt.pi.size()];
+    char ** onames = new char *[nodes.size()];
+    for (std::map<int, BDD>::iterator i = ckt.pi.begin(); i != ckt.pi.end(); i++) {
+      inames[std::distance(ckt.pi.begin(),i)] = new char[ckt.at(i->first).name.size()];
+      ckt.at(i->first).name.copy(inames[std::distance(ckt.pi.begin(),i)], ckt.at(i->first).name.size());
+    }
+    std::cerr << "wrote pi name list\n";
+    for (std::map<int, BDD>::const_iterator i = nodes.begin(); i != nodes.end(); i++) {
+      F[std::distance(nodes.begin(),i)] = i->second.getNode();
+      onames[std::distance(nodes.begin(),i)] = new char[ckt.at(i->first).name.size()];
+      ckt.at(i->first).name.copy(onames[std::distance(nodes.begin(),i)], ckt.at(i->first).name.size());
+    }
+    int result = Cudd_DumpDot(mgr, n, F, inames, onames, fp);
+    delete [] F;
+    delete [] inames;
+    delete [] onames;
+
+} // vector<BDD>::DumpDot
 
 // Traverse a BDD for a single function and minterm 
 bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,bool> vars)
@@ -31,12 +60,12 @@ bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,b
 
 
 // simplistic image function ref 8.4.1, using input splitting
-BDD img(const BDD f, BDD C, Cudd manager)
+BDD img(const BDD f, const BDD C, Cudd manager)
 {
-  BDD result = img_recur(f, manager);
-  return result.Constrain(C);
+  BDD result = img_recur(f, C, manager);
+  return result;
 }
-BDD img_recur(BDD f, Cudd manager)
+BDD img_recur(BDD f, const BDD C, Cudd manager)
 {
   BDD Fv , Fnv;
   if (f == manager.bddOne()) 
@@ -61,7 +90,7 @@ BDD img_recur(BDD f, Cudd manager)
   // img(f) = img(f+) + img(f-)
   //
   std::cerr << "Recursing.\n";
-  return img_recur(Fv, manager) + img_recur(Fnv,manager);
+  return img_recur(Fv, C, manager).Constrain(C) + img_recur(Fnv, C, manager).Constrain(C);
 }
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main()
@@ -127,7 +156,7 @@ int main()
     img(it->second,minterm,ckt.getManager()).PrintCover();
     dff_imgs.push_back(img(it->second,minterm,ckt.getManager()));
   }
-  ckt.getManager().DumpDot(dff_imgs);
-  ckt.getManager().DumpDot(minterms);
+  DFF_DumpDot(ckt.dff, ckt);
+//  ckt.getManager().DumpDot(minterms);
   return 0;
 }
