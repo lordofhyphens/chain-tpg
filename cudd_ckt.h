@@ -15,7 +15,7 @@ class CUDD_Circuit : public Circuit {
     std::map<int, BDD> dff; // internals flipflops
     std::map<int, BDD> net; // all internal netlist bdds generated.
     std::map<int, BDD> pi;
-    std::map<int, int> dff_pair;
+    std::map<int, int> dff_pair; // DFF Variables
     CUDD_Circuit(Cudd manager) : Circuit(),  _manager(manager) { };
     CUDD_Circuit() : Circuit() { 
       _manager = Cudd(0,0);
