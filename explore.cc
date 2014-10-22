@@ -7,36 +7,6 @@
 #include <ctime>
 
 int verbose_flag = 0;
-BDD img_recur(BDD f, Cudd manager);
-
-void
-DFF_DumpDot(
-  const std::map<int, BDD>& nodes,
-  CUDD_Circuit ckt,
-  FILE * fp = stdout) 
-{
-    std::cerr << "Dumping to Dot\n";
-    DdManager *mgr = ckt.getManager().getManager();
-    int n = nodes.size();
-    DdNode **F = new DdNode *[n];
-    char ** inames = new char *[ckt.pi.size()];
-    char ** onames = new char *[nodes.size()];
-    for (std::map<int, BDD>::iterator i = ckt.pi.begin(); i != ckt.pi.end(); i++) {
-      inames[std::distance(ckt.pi.begin(),i)] = new char[ckt.at(i->first).name.size()];
-      ckt.at(i->first).name.copy(inames[std::distance(ckt.pi.begin(),i)], ckt.at(i->first).name.size());
-    }
-    std::cerr << "wrote pi name list\n";
-    for (std::map<int, BDD>::const_iterator i = nodes.begin(); i != nodes.end(); i++) {
-      F[std::distance(nodes.begin(),i)] = i->second.getNode();
-      onames[std::distance(nodes.begin(),i)] = new char[ckt.at(i->first).name.size()];
-      ckt.at(i->first).name.copy(onames[std::distance(nodes.begin(),i)], ckt.at(i->first).name.size());
-    }
-    int result = Cudd_DumpDot(mgr, n, F, inames, onames, fp);
-    delete [] F;
-    delete [] inames;
-    delete [] onames;
-
-} // vector<BDD>::DumpDot
 
 void
 DFF_DumpDot(
@@ -88,14 +58,8 @@ bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,b
   return !Cudd_IsComplement(func);
 }
 
-
-// simplistic image function ref 8.4.1, using input splitting
-BDD img(const BDD f, const BDD C, Cudd manager)
+BDD img_constant(BDD f, BDD c, Cudd manager)
 {
-  BDD result = img_recur(f.Constrain(C),manager);
-  return result;
-}
-BDD img_constant(BDD f, BDD c, Cudd manager) {
   // return the BDD for this variable
   if (c == manager.bddOne()) {
     return manager.bddVar(manager.ReadPerm(f.getRegularNode()->index));
@@ -104,34 +68,29 @@ BDD img_constant(BDD f, BDD c, Cudd manager) {
   }
   
 }
-BDD img_recur(BDD f, Cudd manager)
+// Expansion via input splitting
+// The image of F w/r/t is the union of the image of its positive and 
+// negative cofactors at some variable x.
+// have: set of bdds for output functions
+// want: bdd with output functions as variables? 
+// form a function such that the image of f = f1,f2,f3..fN 
+// compute 
+// every time we hit a terminal case, the minterm generated is the constant value * the choices made along the way. 
+// so if we've computed a*~b*c (postive cofactor of a, negative cofactor of b, and positive of c)and the terminal case is 0, then the minterm to add to the cube is ~a*b*~c;
+//
+BDD img_recur(BDD f, BDD result, Cudd manager, bool inv)
 {
-  BDD Fv , Fnv;
-  // get the positive cofactor
-  Fv = BDD(manager, Cudd_T(f.getNode()));
-  // get the negative cofactor
-  Fnv = BDD(manager, Cudd_E(f.getNode()));
-  if (Fv == Fnv) {
-    return Fv;
-  }
-  // 
-  // img(f) = img(f+) + img(f-)
-  //
-  std::cerr << "Recursing.\n";
-  if ((Fv == manager.bddOne() || Fv == manager.bddZero()) && (Fnv == manager.bddOne() || Fnv == manager.bddZero())) {
-    std::cerr << "Both children are constant.\n";
-    return img_constant(f, Fv, manager) + img_constant(f, Fnv, manager);
-  } else if (Fv == manager.bddOne() || Fv == manager.bddZero()) {
-    std::cerr << "Positive is constant.\n";
-    return img_constant(f, Fv, manager) + img_recur(Fnv,manager);
-  } else if (Fnv == manager.bddOne() || Fnv == manager.bddZero()) {
-    std::cerr << "Negative is constant.\n";
-    return img_constant(f, Fnv, manager) + img_recur(Fv,manager);
-  } else {
-    std::cerr << "Neither is constant.\n";
-    return img_recur(Fv,manager) + img_recur(Fnv,manager);
-  }
+  BDD top = manager.bddVar(f.ReadIndex());
+  BDD Fv = f.Cofactor(top);
+  BDD Fnv = f.Cofactor(~top);
+
 }
+BDD img(BDD f, Cudd manager, bool inv = false)
+{
+  BDD result;
+  return result;
+}
+
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main()
 {
@@ -190,17 +149,15 @@ int main()
   minterms.push_back(minterm);
   BDD image = img(ckt.dff.begin()->second,minterm,ckt.getManager());
 
-  DFF_DumpDot(ckt.dff, ckt);
- // DFF_DumpDot(ckt.dff, minterm, ckt);
   for (std::map<int, BDD>::const_iterator it = ckt.dff.begin(); it != ckt.dff.end(); it++) 
   {
     std::cerr << "New DFF\n";
-    image *= img(it->second,minterm,ckt.getManager());
-//    dff_imgs.push_back(it->second.Constrain(minterm));
+    image *= img(it->second,ckt.getManager());
+    dff_imgs.push_back(img(it->second,ckt.getManager()));
   }
-  dff_imgs.push_back(image);
+//  dff_imgs.push_back(image);
 //  DFF_DumpDot(ckt.dff, ckt);
-//  ckt.getManager().DumpDot(dff_imgs);
+  ckt.getManager().DumpDot(dff_imgs);
   ckt.getManager().DumpDot(minterms);
   return 0;
 }
