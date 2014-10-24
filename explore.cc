@@ -94,7 +94,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
   // if there are, we have a terminal case
   if (std::count_if(f.begin(), f.end(), isConstant) > 0) 
   {
-    BDD constant_terms = manager.bddOne(), pos =manager.bddOne(), neg = manager.bddOne();
+    BDD constant_terms = manager.bddOne(), pos =manager.bddOne();
     for (std::map<int, BDD>::const_iterator it = f.begin(); it != f.end(); it++) {
       if (isConstant(*it))
       { 
@@ -109,16 +109,15 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
         }
       } else {
         std::cerr << "Adding " << mapping[it->first] << " to var for output " << it->first << "\n";
-        pos *= manager.bddVar(mapping[it->first]);
+        pos *= (manager.bddVar(mapping[it->first]) + ~manager.bddVar(mapping[it->first]));
         std::cerr << "Adding ~" << mapping[it->first] << " to neg var for output " << it->first << "\n";
-        neg *= ~manager.bddVar(mapping[it->first]);
       }
     }
 
     // terminal case. The minterm is equal to 
     // y_n = f_n if == 1, ~f_n otherwise, AND the ANDing of all constant nodes and their complements.
     // return this minterm
-    return constant_terms;//*(pos + neg);
+    return constant_terms*pos;//*(pos + neg);
   } 
   else 
   {
@@ -160,7 +159,7 @@ int main()
   srand(time(NULL));
   std::vector<std::map<unsigned int, bool> > inputs;
   read_vectors(inputs, "../bench/s27.vec");
-  ckt.read_bench("../bench/s298.bench");
+  ckt.read_bench("../bench/s27.bench");
   std::cerr << "Printing ckt.\n";
   ckt.print();
   ckt.form_bdds();
@@ -199,32 +198,49 @@ int main()
 
   }
   */
+
+  std::vector<BDD> results;
+  for (std::map<int,int>::const_iterator it = ckt.dff_pair.begin(); it != ckt.dff_pair.end(); it++) 
+  {
+    results.push_back(ckt.getManager().bddVar(it->second));
+  }
   std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
   BDD minterm = ckt.getManager().bddOne();
-
-  for (std::map<int, int>::const_iterator it = ckt.dff_pair.begin(); it != ckt.dff_pair.end(); it++) {
-    minterm *= ckt.getManager().bddVar(it->second);
-  }
-  std::vector<BDD> minterms;
+  std::vector<BDD> chain;
+  BDD possible = ckt.getManager().bddOne();
+  minterm *= ~ckt.getManager().bddVar(5) * ~ckt.getManager().bddVar(6) * ckt.getManager().bddVar(7); // initial state
+  BDD visited = minterm;
+  minterm.PrintCover();
+  possible -= minterm;
+  std::vector<BDD> states;
   std::map<int, BDD> dff_c;
-  minterms.push_back(minterm);
-  FILE* fp = fopen("ckt.dot", "w");
-  DFF_DumpDot(ckt.dff, ckt, fp);
-  fclose(fp);
-  for (std::map<int, BDD>::const_iterator it = ckt.dff.begin(); it != ckt.dff.end(); it++) {
-    dff_c[it->first]= it->second.Constrain(minterm);
-  }
-  BDD temp = img(ckt.dff, ckt.dff_pair, ckt.getManager());
-  minterms.clear();
-  minterms.push_back(temp);
 
-  fp = fopen("states.dot", "w");
-  ckt.getManager().DumpDot(minterms, NULL, NULL, fp);
+  BDD temp = img(ckt.dff, ckt.dff_pair, minterm, ckt.getManager());
+  BDD next = (temp-visited).PickOneMinterm(results);
+  std::cerr << "Next: \n";
+  next.PrintCover();
+  std::cerr << "Visited: \n";
+  visited.PrintCover();
+  std::cerr << "Img - Visited: \n";
+  (temp-visited).PrintCover();
+  visited += next;
+  chain.push_back(next);
+  std::cerr << "temp: " << temp.CountMinterm(3) << " - visited: " << visited.CountMinterm(3) << " = " <<  (temp-visited).CountMinterm(3) << " minterms.\n";
+  while((temp-visited).CountMinterm(3) > 0)
+  {
+    std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
+    next.PrintCover();
+    std::cerr << (temp-visited).CountMinterm(3) << " minterms.\n";
+    temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
+    next = (temp-visited).PickOneMinterm(results); // random selection
+    visited += next;
+    chain.push_back(next);
+    next.PrintCover();
+  }
+
+  FILE* fp = fopen("states.dot", "w");
+  ckt.getManager().DumpDot(chain, NULL, NULL, fp);
   fclose(fp);
-  fp = fopen("const.dot", "w");
-  DFF_DumpDot(dff_c, ckt, fp);
-  fclose(fp);
-  temp.PrintCover();
 
   return 0;
 }
