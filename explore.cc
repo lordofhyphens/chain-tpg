@@ -85,11 +85,11 @@ bool isConstant(const std::pair<int, BDD>& f) {
 }
 
 
+
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, const int split = 0)
 {
   // mapping is needed to match output functions to input variables when generating
   // next-state.
-  BDD result;
   // first, check to see if any of the functions are constant 0 or constant 1.
   // if there are, we have a terminal case
   if (std::count_if(f.begin(), f.end(), isConstant) > 0) 
@@ -101,12 +101,16 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
         // if this term is constant 1
         if (it->second == manager.bddOne()) 
         {
+          std::cerr << it->first << " is constant. Adding " << mapping[it->first] << " to var for output " << it->first << "\n";
           constant_terms *= (manager.bddVar(mapping[it->first]));
         } else {
+          std::cerr << it->first << " is constant. Adding ~" << mapping[it->first] << " to var for output " << it->first << "\n";
           constant_terms *= ~(manager.bddVar(mapping[it->first]));
         }
       } else {
+        std::cerr << "Adding " << mapping[it->first] << " to var for output " << it->first << "\n";
         pos *= manager.bddVar(mapping[it->first]);
+        std::cerr << "Adding ~" << mapping[it->first] << " to neg var for output " << it->first << "\n";
         neg *= ~manager.bddVar(mapping[it->first]);
       }
     }
@@ -114,12 +118,13 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
     // terminal case. The minterm is equal to 
     // y_n = f_n if == 1, ~f_n otherwise, AND the ANDing of all constant nodes and their complements.
     // return this minterm
-    return constant_terms*(pos + neg);
+    return constant_terms;//*(pos + neg);
   } 
   else 
   {
    std::map<int, BDD> v = f;
    std::map<int, BDD> vn = f;
+   std::cerr << "Splitting on var x" << manager.ReadPerm(split) << "\n";
    BDD p = manager.ReadVars(split);
     // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
     for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
@@ -130,9 +135,21 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
     {
       it->second = it->second.Cofactor(~p);
     }
+
+    std::cerr << "Recursing.\n";
    return img(v, mapping, manager, split+1) + img(vn, mapping, manager, split+1);
   }
-  return result;
+}
+BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager, const int split = 0)
+{
+
+  std::map<int, BDD> v = f;
+  for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
+  {
+    it->second = it->second.Constrain(C);
+  }
+  return img(v, mapping, manager);
+
 }
 
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
@@ -143,9 +160,9 @@ int main()
   srand(time(NULL));
   std::vector<std::map<unsigned int, bool> > inputs;
   read_vectors(inputs, "../bench/s27.vec");
-  ckt.read_bench("../bench/s27.bench");
+  ckt.read_bench("../bench/s298.bench");
   std::cerr << "Printing ckt.\n";
-  //ckt.print();
+  ckt.print();
   ckt.form_bdds();
 
   std::map<unsigned int, bool> inps; // temporary map to join dff vars and input vars.
@@ -185,22 +202,27 @@ int main()
   std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
   BDD minterm = ckt.getManager().bddOne();
 
-  minterm = ~ckt.getManager().bddVar(5) * ~ckt.getManager().bddVar(6) * ~ckt.getManager().bddVar(7);
-  minterm += ckt.getManager().bddVar(5) * ~ckt.getManager().bddVar(6) * ~ckt.getManager().bddVar(7);
-  minterm += ~ckt.getManager().bddVar(5) * ~ckt.getManager().bddVar(6) * ckt.getManager().bddVar(7);
-  minterm += ckt.getManager().bddVar(5) * ~ckt.getManager().bddVar(6) * ckt.getManager().bddVar(7);
-
-  std::vector<BDD> dff_imgs;
+  for (std::map<int, int>::const_iterator it = ckt.dff_pair.begin(); it != ckt.dff_pair.end(); it++) {
+    minterm *= ckt.getManager().bddVar(it->second);
+  }
   std::vector<BDD> minterms;
+  std::map<int, BDD> dff_c;
   minterms.push_back(minterm);
   FILE* fp = fopen("ckt.dot", "w");
   DFF_DumpDot(ckt.dff, ckt, fp);
   fclose(fp);
+  for (std::map<int, BDD>::const_iterator it = ckt.dff.begin(); it != ckt.dff.end(); it++) {
+    dff_c[it->first]= it->second.Constrain(minterm);
+  }
   BDD temp = img(ckt.dff, ckt.dff_pair, ckt.getManager());
   minterms.clear();
   minterms.push_back(temp);
+
   fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(minterms, NULL, NULL, fp);
+  fclose(fp);
+  fp = fopen("const.dot", "w");
+  DFF_DumpDot(dff_c, ckt, fp);
   fclose(fp);
   temp.PrintCover();
 

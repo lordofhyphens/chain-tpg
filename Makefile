@@ -16,3 +16,4 @@ test: explore
 	./$^
 	dot -Tpdf -O states.dot
 	dot -Tpdf -O ckt.dot
+	dot -Tpdf -O const.dot
