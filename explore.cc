@@ -1,6 +1,7 @@
 #include "cudd_ckt.h"
 #include "util/vectors.h"
 #include <algorithm>
+#include <cstring>
 #include "cudd.h"
 
 #include <random>
@@ -8,10 +9,18 @@
 
 int verbose_flag = 0;
 
+
+template< typename tPair >
+struct second_t {
+    typename tPair::second_type operator()( const tPair& p ) const { return     p.second; }
+};
+
+template< typename tMap > 
+second_t< typename tMap::value_type > second( const tMap& m ) { return second_t<     typename tMap::value_type >(); }
+
 void
 DFF_DumpDot(
   const std::map<int, BDD>& nodes,
-  BDD co,
   CUDD_Circuit ckt,
   FILE * fp = stdout) 
 {
@@ -23,15 +32,15 @@ DFF_DumpDot(
     char ** onames = new char *[nodes.size()];
     for (std::map<int, BDD>::iterator i = ckt.pi.begin(); i != ckt.pi.end(); i++) {
       inames[std::distance(ckt.pi.begin(),i)] = new char[ckt.at(i->first).name.size()];
-      ckt.at(i->first).name.copy(inames[std::distance(ckt.pi.begin(),i)], ckt.at(i->first).name.size());
+      strcpy(inames[std::distance(ckt.pi.begin(),i)],ckt.at(i->first).name.c_str());
     }
     std::cerr << "wrote pi name list\n";
     for (std::map<int, BDD>::const_iterator i = nodes.begin(); i != nodes.end(); i++) {
-      F[std::distance(nodes.begin(),i)] = i->second.Constrain(co).getNode();
+      F[std::distance(nodes.begin(),i)] = i->second.getNode();
       onames[std::distance(nodes.begin(),i)] = new char[ckt.at(i->first).name.size()];
-      ckt.at(i->first).name.copy(onames[std::distance(nodes.begin(),i)], ckt.at(i->first).name.size());
+      strcpy(onames[std::distance(nodes.begin(),i)],ckt.at(i->first).name.c_str());
     }
-    int result = Cudd_DumpDot(mgr, n, F, inames, onames, fp);
+    Cudd_DumpDot(mgr, n, F, inames, onames, fp);
     delete [] F;
     delete [] inames;
     delete [] onames;
@@ -58,36 +67,71 @@ bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,b
   return !Cudd_IsComplement(func);
 }
 
-BDD img_constant(BDD f, BDD c, Cudd manager)
-{
-  // return the BDD for this variable
-  if (c == manager.bddOne()) {
-    return manager.bddVar(manager.ReadPerm(f.getRegularNode()->index));
-  } else {
-    return ~manager.bddVar(manager.ReadPerm(f.getRegularNode()->index));
-  }
-  
-}
-// Expansion via input splitting
-// The image of F w/r/t is the union of the image of its positive and 
-// negative cofactors at some variable x.
-// have: set of bdds for output functions
-// want: bdd with output functions as variables? 
-// form a function such that the image of f = f1,f2,f3..fN 
-// compute 
-// every time we hit a terminal case, the minterm generated is the constant value * the choices made along the way. 
-// so if we've computed a*~b*c (postive cofactor of a, negative cofactor of b, and positive of c)and the terminal case is 0, then the minterm to add to the cube is ~a*b*~c;
+// Expansion via input splitting The image of F w/r/t is the union of the image
+// of its positive and negative cofactors at some variable x.  have: set of
+// bdds for output functions want: bdd with output functions as variables?
+// form a function such that the image of f = f1,f2,f3..fN compute every time
+// we hit a terminal case, the minterm generated is the constant value * the
+// choices made along the way.  so if we've computed a*~b*c (postive cofactor
+// of a, negative cofactor of b, and positive of c)and the terminal case is 0,
+// then the minterm to add to the cube is ~a*b*~c;
 //
-BDD img_recur(BDD f, BDD result, Cudd manager, bool inv)
-{
-  BDD top = manager.bddVar(f.ReadIndex());
-  BDD Fv = f.Cofactor(top);
-  BDD Fnv = f.Cofactor(~top);
+// at every level of recursion, see if one of the arguments is constant. if it
+// is, compute the minterm for that and return it.
+//
 
+bool isConstant(const std::pair<int, BDD>& f) {
+  return (Cudd_IsConstant(f.second.getNode()) == 1);
 }
-BDD img(BDD f, Cudd manager, bool inv = false)
+
+
+BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, const int split = 0)
 {
+  // mapping is needed to match output functions to input variables when generating
+  // next-state.
   BDD result;
+  // first, check to see if any of the functions are constant 0 or constant 1.
+  // if there are, we have a terminal case
+  if (std::count_if(f.begin(), f.end(), isConstant) > 0) 
+  {
+    BDD constant_terms = manager.bddOne(), pos =manager.bddOne(), neg = manager.bddOne();
+    for (std::map<int, BDD>::const_iterator it = f.begin(); it != f.end(); it++) {
+      if (isConstant(*it))
+      { 
+        // if this term is constant 1
+        if (it->second == manager.bddOne()) 
+        {
+          constant_terms *= (manager.bddVar(mapping[it->first]));
+        } else {
+          constant_terms *= ~(manager.bddVar(mapping[it->first]));
+        }
+      } else {
+        pos *= manager.bddVar(mapping[it->first]);
+        neg *= ~manager.bddVar(mapping[it->first]);
+      }
+    }
+
+    // terminal case. The minterm is equal to 
+    // y_n = f_n if == 1, ~f_n otherwise, AND the ANDing of all constant nodes and their complements.
+    // return this minterm
+    return constant_terms*(pos + neg);
+  } 
+  else 
+  {
+   std::map<int, BDD> v = f;
+   std::map<int, BDD> vn = f;
+   BDD p = manager.ReadVars(split);
+    // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
+    for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
+    {
+      it->second = it->second.Cofactor(p);
+    }
+    for (std::map<int, BDD>::iterator it = vn.begin(); it != vn.end(); it++) 
+    {
+      it->second = it->second.Cofactor(~p);
+    }
+   return img(v, mapping, manager, split+1) + img(vn, mapping, manager, split+1);
+  }
   return result;
 }
 
@@ -112,6 +156,7 @@ int main()
     std::cerr << "Dff_in " << it->first << " == " << ckt.dff_pair.at(it->first) << "\n";
     dff_in[ckt.dff_pair.at(it->first)]  = (random() % 2 > 0 ? false : true);
   }
+  /*
   for (std::vector<std::map<unsigned int, bool> >::const_iterator it = inputs.begin(); it != inputs.end(); it++)
   {
     inps.clear();
@@ -136,6 +181,7 @@ int main()
      std::cerr << (eval_minterm(ckt.getManager(), j->second, inps) ?  "True" : "False") << "\n";
 
   }
+  */
   std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
   BDD minterm = ckt.getManager().bddOne();
 
@@ -147,17 +193,16 @@ int main()
   std::vector<BDD> dff_imgs;
   std::vector<BDD> minterms;
   minterms.push_back(minterm);
-  BDD image = img(ckt.dff.begin()->second,minterm,ckt.getManager());
+  FILE* fp = fopen("ckt.dot", "w");
+  DFF_DumpDot(ckt.dff, ckt, fp);
+  fclose(fp);
+  BDD temp = img(ckt.dff, ckt.dff_pair, ckt.getManager());
+  minterms.clear();
+  minterms.push_back(temp);
+  fp = fopen("states.dot", "w");
+  ckt.getManager().DumpDot(minterms, NULL, NULL, fp);
+  fclose(fp);
+  temp.PrintCover();
 
-  for (std::map<int, BDD>::const_iterator it = ckt.dff.begin(); it != ckt.dff.end(); it++) 
-  {
-    std::cerr << "New DFF\n";
-    image *= img(it->second,ckt.getManager());
-    dff_imgs.push_back(img(it->second,ckt.getManager()));
-  }
-//  dff_imgs.push_back(image);
-//  DFF_DumpDot(ckt.dff, ckt);
-  ckt.getManager().DumpDot(dff_imgs);
-  ckt.getManager().DumpDot(minterms);
   return 0;
 }
