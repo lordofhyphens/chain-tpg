@@ -9,15 +9,6 @@
 
 int verbose_flag = 0;
 
-
-template< typename tPair >
-struct second_t {
-    typename tPair::second_type operator()( const tPair& p ) const { return     p.second; }
-};
-
-template< typename tMap > 
-second_t< typename tMap::value_type > second( const tMap& m ) { return second_t<     typename tMap::value_type >(); }
-
 void
 DFF_DumpDot(
   const std::map<int, BDD>& nodes,
@@ -94,30 +85,26 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
   // if there are, we have a terminal case
   if (std::count_if(f.begin(), f.end(), isConstant) > 0) 
   {
-    BDD constant_terms = manager.bddOne(), pos =manager.bddOne();
+    BDD constant_terms = manager.bddOne(), pos = manager.bddOne();
     for (std::map<int, BDD>::const_iterator it = f.begin(); it != f.end(); it++) {
       if (isConstant(*it))
       { 
         // if this term is constant 1
         if (it->second == manager.bddOne()) 
         {
-          std::cerr << it->first << " is constant. Adding " << mapping[it->first] << " to var for output " << it->first << "\n";
           constant_terms *= (manager.bddVar(mapping[it->first]));
         } else {
-          std::cerr << it->first << " is constant. Adding ~" << mapping[it->first] << " to var for output " << it->first << "\n";
           constant_terms *= ~(manager.bddVar(mapping[it->first]));
         }
       } else {
-        std::cerr << "Adding " << mapping[it->first] << " to var for output " << it->first << "\n";
         pos *= (manager.bddVar(mapping[it->first]) + ~manager.bddVar(mapping[it->first]));
-        std::cerr << "Adding ~" << mapping[it->first] << " to neg var for output " << it->first << "\n";
       }
     }
 
     // terminal case. The minterm is equal to 
     // y_n = f_n if == 1, ~f_n otherwise, AND the ANDing of all constant nodes and their complements.
     // return this minterm
-    return constant_terms*pos;//*(pos + neg);
+    return constant_terms*pos;
   } 
   else 
   {
@@ -135,7 +122,6 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
       it->second = it->second.Cofactor(~p);
     }
 
-    std::cerr << "Recursing.\n";
    return img(v, mapping, manager, split+1) + img(vn, mapping, manager, split+1);
   }
 }
@@ -151,15 +137,23 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd mana
 
 }
 
+// Overload operator <<  to perform logical swaps of variables.
+// Behaviour: Variable 1 becomes variable 2, ... while variable N becomes a dontcare
+// Variable order is in terms of the integer order, not the current BDD ordering.
+BDD operator<<(const BDD& dd, const int& places)
+{
+  return dd;
+}
+
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
-int main()
+int main(int argc, const char* argv[])
 {
   srand(1);
   CUDD_Circuit ckt;
   srand(time(NULL));
   std::vector<std::map<unsigned int, bool> > inputs;
   read_vectors(inputs, "../bench/s27.vec");
-  ckt.read_bench("../bench/s27.bench");
+  ckt.read_bench(argv[1]);
   std::cerr << "Printing ckt.\n";
   ckt.print();
   ckt.form_bdds();
@@ -205,18 +199,21 @@ int main()
     results.push_back(ckt.getManager().bddVar(it->second));
   }
   std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
-  BDD minterm = ckt.getManager().bddOne();
-  std::vector<BDD> chain;
-  BDD possible = ckt.getManager().bddOne();
-  minterm *= ~ckt.getManager().bddVar(5) * ~ckt.getManager().bddVar(6) * ckt.getManager().bddVar(7); // initial state
-  BDD visited = minterm;
-  minterm.PrintCover();
-  possible -= minterm;
-  std::vector<BDD> states;
-  std::map<int, BDD> dff_c;
 
-  BDD temp = img(ckt.dff, ckt.dff_pair, minterm, ckt.getManager());
-  BDD next = (temp-visited).PickOneMinterm(results);
+  std::vector<BDD> chain;
+
+  BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
+  std::cerr << "Total possible minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
+  possible.PrintCover();
+  BDD next = possible.PickOneMinterm(results); // pseudorandom initial state
+  BDD visited = next;
+
+  std::vector<BDD> states;
+
+  std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
+  next.PrintCover();
+  BDD temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
+  next = (temp-visited).PickOneMinterm(results);
   std::cerr << "Next: \n";
   next.PrintCover();
   std::cerr << "Visited: \n";
@@ -224,18 +221,31 @@ int main()
   std::cerr << "Img - Visited: \n";
   (temp-visited).PrintCover();
   visited += next;
+  possible -= visited;
   chain.push_back(next);
-  std::cerr << "temp: " << temp.CountMinterm(3) << " - visited: " << visited.CountMinterm(3) << " = " <<  (temp-visited).CountMinterm(3) << " minterms.\n";
-  while((temp-visited).CountMinterm(3) > 0)
-  {
-    std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
-    next.PrintCover();
-    std::cerr << (temp-visited).CountMinterm(3) << " minterms.\n";
-    temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
-    next = (temp-visited).PickOneMinterm(results); // random selection
-    visited += next;
-    chain.push_back(next);
-    next.PrintCover();
+  std::cerr << "temp: " << temp.CountMinterm(ckt.dff.size()) << " - visited: " << visited.CountMinterm(ckt.dff.size()) << " = " <<  (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
+  while (possible.CountMinterm(ckt.dff.size()) > 0) {
+    while((temp-visited).CountMinterm(ckt.dff.size()) > 0)
+    {
+      std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
+      next.PrintCover();
+      std::cerr << (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
+      temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
+      next = (temp-visited).PickOneMinterm(results); // random selection
+      visited += next;
+      chain.push_back(next);
+      next.PrintCover();
+    }
+    possible -= visited;
+    std::cerr << "Total possible remaining minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
+    possible.PrintCover();
+    if (possible.CountMinterm(ckt.dff.size()) > 0) {
+      std::cerr << "new chain" << "\n";
+      next = possible.PickOneMinterm(results);
+      temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
+      visited += next;
+      chain.push_back(next);
+    }
   }
 
   FILE* fp = fopen("states.dot", "w");
