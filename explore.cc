@@ -1,6 +1,7 @@
 #include "cudd_ckt.h"
 #include "util/vectors.h"
 #include <algorithm>
+#include <parallel/algorithm>
 #include <cstring>
 #include "cudd.h"
 
@@ -8,7 +9,7 @@
 #include <ctime>
 
 int verbose_flag = 0;
-const int N = 20;
+const int N = 5;
 
 void
 DFF_DumpDot(
@@ -84,7 +85,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
   // next-state.
   // first, check to see if any of the functions are constant 0 or constant 1.
   // if there are, we have a terminal case
-  if (std::count_if(f.begin(), f.end(), isConstant) > 0) 
+  if (__gnu_parallel::count_if(f.begin(), f.end(), isConstant) > 0) 
   {
     BDD constant_terms = manager.bddOne(), pos = manager.bddOne();
     for (std::map<int, BDD>::const_iterator it = f.begin(); it != f.end(); it++) {
@@ -155,7 +156,7 @@ int sum_sizes(std::vector<std::vector<BDD> >::const_iterator start, std::vector<
   return sum;
 }
 bool isSingleton(const std::vector<BDD>& a) {
-	return (a.size() <= N);
+	return (a.size() < N);
 }
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main(int argc, const char* argv[])
@@ -164,7 +165,6 @@ int main(int argc, const char* argv[])
   CUDD_Circuit ckt;
   srand(time(NULL));
   std::vector<std::map<unsigned int, bool> > inputs;
-  read_vectors(inputs, "../bench/s27.vec");
   ckt.read_bench(argv[1]);
   if (verbose_flag)
     std::cerr << "Printing ckt.\n";
@@ -236,9 +236,8 @@ int main(int argc, const char* argv[])
   if (verbose_flag)
     std::cerr << "temp: " << temp.CountMinterm(ckt.dff.size()) << " - visited: " << visited.CountMinterm(ckt.dff.size()) << " = " <<  (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
   while (possible.CountMinterm(ckt.dff.size()) > 0) {
-    while((temp-visited).CountMinterm(ckt.dff.size()) > 0)
+    while((temp-visited).CountMinterm(ckt.dff.size()) > 0 && chain.size() < N)
     {
-
       if (verbose_flag)
         std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
       if (verbose_flag)
@@ -252,7 +251,6 @@ int main(int argc, const char* argv[])
       next = temp.PickOneMinterm(results); // random selection
       visited += next;
       chain.push_back(next);
-      //next.PrintCover();
     }
     possible -= visited;
 
@@ -272,10 +270,10 @@ int main(int argc, const char* argv[])
     }
   }
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  int t = count_if(all_chains.begin(),all_chains.end(),isSingleton);
+  int t = __gnu_parallel::count_if(all_chains.begin(),all_chains.end(),isSingleton);
   std::cerr << "Created " << all_chains.size() - t << " chains of length > " << N << ".\n";
   std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
-  std::cout << argv[0] << ":" << "\n";
+std::cout << argv[1] << ":" << all_chains.size() << "," <<   all_chains.size() - t << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
 	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
