@@ -110,7 +110,8 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
   {
    std::map<int, BDD> v = f;
    std::map<int, BDD> vn = f;
-   std::cerr << "Splitting on var x" << manager.ReadPerm(split) << "\n";
+   if (verbose_flag) 
+     std::cerr << "Splitting on var x" << manager.ReadPerm(split) << "\n";
    BDD p = manager.ReadVars(split);
     // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
     for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
@@ -154,8 +155,9 @@ int main(int argc, const char* argv[])
   std::vector<std::map<unsigned int, bool> > inputs;
   read_vectors(inputs, "../bench/s27.vec");
   ckt.read_bench(argv[1]);
+  if (verbose_flag)
   std::cerr << "Printing ckt.\n";
-  ckt.print();
+  //ckt.print();
   ckt.form_bdds();
 
   std::map<unsigned int, bool> inps; // temporary map to join dff vars and input vars.

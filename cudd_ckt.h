@@ -66,6 +66,12 @@ class CUDD_Circuit : public Circuit {
                 case OR:
                   result = result.Or(net.at(fin->second));
                   break;
+                case XOR:
+                  result = result.Xor(net.at(fin->second));
+                  break;
+                case XNOR:
+                  result = result.Xnor(net.at(fin->second));
+                  break;
               }
               break;
             }
@@ -78,12 +84,13 @@ class CUDD_Circuit : public Circuit {
         if (gate->typ == DFF_IN) {
           dff[pos] = result;
           if (verbose_flag)
-            std::cerr << "looking for matching var for " << gate->name << "\n";
+            std::cerr << "looking for matching var for " << gate->name << ", " << gate->name.substr(0,gate->name.size()-3).c_str() << "\n";
+          std::string tgt = gate->name.substr(0,gate->name.size()-3);
           for (std::vector<NODEC>::iterator gtmp = graph->begin(); gtmp < graph->end(); gtmp++)
           {
             if (verbose_flag)
-              std::cerr << "Checking " << gtmp->name << "\n";
-            if (gtmp->name.find(gate->name.substr(0,gate->name.size()-3).c_str(),0,gtmp->name.size()) != std::string::npos)
+              std::cerr << "Checking " << gtmp->name << ", " << tgt << "\n";
+            if (gtmp->name.find(tgt.c_str(),0,tgt.size()) != std::string::npos)
             {
               dff_pair[pos] = gtmp - graph->begin();
               if (verbose_flag)
