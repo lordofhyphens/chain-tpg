@@ -8,6 +8,7 @@
 #include <ctime>
 
 int verbose_flag = 0;
+const int N = 20;
 
 void
 DFF_DumpDot(
@@ -146,6 +147,16 @@ BDD operator<<(const BDD& dd, const int& places)
   return dd;
 }
 
+int sum_sizes(std::vector<std::vector<BDD> >::const_iterator start, std::vector<std::vector<BDD> >::const_iterator end) 
+{
+  int sum = 0;
+  for (std::vector<std::vector<BDD> >::const_iterator i = start; i != end; i++)
+    sum += i->size();
+  return sum;
+}
+bool isSingleton(const std::vector<BDD>& a) {
+	return (a.size() <= N);
+}
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main(int argc, const char* argv[])
 {
@@ -156,7 +167,7 @@ int main(int argc, const char* argv[])
   read_vectors(inputs, "../bench/s27.vec");
   ckt.read_bench(argv[1]);
   if (verbose_flag)
-  std::cerr << "Printing ckt.\n";
+    std::cerr << "Printing ckt.\n";
   //ckt.print();
   ckt.form_bdds();
 
@@ -196,6 +207,7 @@ int main(int argc, const char* argv[])
   */
 
   std::vector<BDD> results;
+  std::vector<std::vector<BDD> > all_chains;
   for (std::map<int,int>::const_iterator it = ckt.dff_pair.begin(); it != ckt.dff_pair.end(); it++) 
   {
     results.push_back(ckt.getManager().bddVar(it->second));
@@ -211,45 +223,60 @@ int main(int argc, const char* argv[])
   BDD visited = next;
 
   std::vector<BDD> states;
-
-  std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
-  next.PrintCover();
+  if (verbose_flag)
+    std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
+  if (verbose_flag)
+    next.PrintCover();
   BDD temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
   next = (temp-visited).PickOneMinterm(results);
-  std::cerr << "Next: \n";
-  next.PrintCover();
-  std::cerr << "Visited: \n";
-  visited.PrintCover();
-  std::cerr << "Img - Visited: \n";
-  (temp-visited).PrintCover();
+
   visited += next;
   possible -= visited;
   chain.push_back(next);
-  std::cerr << "temp: " << temp.CountMinterm(ckt.dff.size()) << " - visited: " << visited.CountMinterm(ckt.dff.size()) << " = " <<  (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
+  if (verbose_flag)
+    std::cerr << "temp: " << temp.CountMinterm(ckt.dff.size()) << " - visited: " << visited.CountMinterm(ckt.dff.size()) << " = " <<  (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
   while (possible.CountMinterm(ckt.dff.size()) > 0) {
     while((temp-visited).CountMinterm(ckt.dff.size()) > 0)
     {
-      std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
-      next.PrintCover();
-      std::cerr << (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
+
+      if (verbose_flag)
+        std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
+      if (verbose_flag)
+        next.PrintCover();
+      if (verbose_flag)
+        std::cerr << (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
       temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
-      next = (temp-visited).PickOneMinterm(results); // random selection
+      temp -= visited;
+      if (temp.CountMinterm(ckt.dff.size()) == 0)
+        continue;
+      next = temp.PickOneMinterm(results); // random selection
       visited += next;
       chain.push_back(next);
-      next.PrintCover();
+      //next.PrintCover();
     }
     possible -= visited;
-    std::cerr << "Total possible remaining minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
-    possible.PrintCover();
+
+    if (verbose_flag)
+      std::cerr << "Total possible remaining minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
+    if (verbose_flag)
+      possible.PrintCover();
     if (possible.CountMinterm(ckt.dff.size()) > 0) {
-      std::cerr << "new chain" << "\n";
+      all_chains.push_back(chain);
+      chain.clear();
+      if (verbose_flag)
+        std::cerr << "new chain" << "\n";
       next = possible.PickOneMinterm(results);
       temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
       visited += next;
       chain.push_back(next);
     }
   }
-
+  std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
+  int t = count_if(all_chains.begin(),all_chains.end(),isSingleton);
+  std::cerr << "Created " << all_chains.size() - t << " chains of length > " << N << ".\n";
+  std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
+  std::cout << argv[0] << ":" << "\n";
+	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
   fclose(fp);
