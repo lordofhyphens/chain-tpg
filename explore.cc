@@ -9,7 +9,7 @@
 #include <ctime>
 
 int verbose_flag = 0;
-const int N = 8;
+const int N = 1;
 const int simul_chains = 50;
 
 void
@@ -164,7 +164,6 @@ bool isSingleton(const std::vector<BDD>& a) {
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main(int argc, const char* argv[])
 {
-  srand(1);
   CUDD_Circuit ckt;
   srand(time(NULL));
   std::vector<std::map<unsigned int, bool> > inputs;
@@ -182,7 +181,8 @@ int main(int argc, const char* argv[])
     std::cerr << "Dff_in " << it->first << " == " << ckt.dff_pair.at(it->first) << "\n";
     dff_in[ckt.dff_pair.at(it->first)]  = (random() % 2 > 0 ? false : true);
   }
-
+  int all_visited = 0;
+  int dead_end = 0;
   std::vector<BDD> results;
   std::vector<std::vector<BDD> > all_chains;
   std::vector<std::vector<BDD> > temp_chains;
@@ -223,8 +223,15 @@ int main(int argc, const char* argv[])
       for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
       {
         BDD temp = img(ckt.dff, ckt.dff_pair, it->back(), ckt.getManager());
+        if (temp.CountMinterm(ckt.dff.size()) == 0) {
+          dead_end++;
+          all_chains.push_back(*it);
+          it->clear();
+          continue;
+        }
         temp -= visited;
         if (temp.CountMinterm(ckt.dff.size()) == 0) {
+          all_visited++;
           all_chains.push_back(*it);
           it->clear();
           continue;
@@ -261,14 +268,16 @@ int main(int argc, const char* argv[])
       }
     }
   }
+
+  std::cout << "Benchmark,total chains, states visited,chains larger than " << N << ",mean chain length (only > " << N << ",stopped because dead end,stopped because all possible visited\n";
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  std::cout << argv[1] << ":" << all_chains.size();
+  std::cout << argv[1] << ":" << all_chains.size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) ;
   std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
   all_chains.erase(p, all_chains.end());
 
   std::cerr << "Created " << all_chains.size() << " chains of length > " << N << ".\n";
   std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << "\n";
-  std::cout << "," <<   all_chains.size() << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "\n";
+  std::cout << "," <<   all_chains.size() << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
 	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
