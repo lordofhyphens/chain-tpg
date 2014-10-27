@@ -9,7 +9,7 @@
 #include <ctime>
 
 int verbose_flag = 0;
-const int N = 5;
+const int N = 50;
 
 void
 DFF_DumpDot(
@@ -155,8 +155,9 @@ int sum_sizes(std::vector<std::vector<BDD> >::const_iterator start, std::vector<
     sum += i->size();
   return sum;
 }
+template <int T>
 bool isSingleton(const std::vector<BDD>& a) {
-	return (a.size() < N);
+	return (a.size() <= T);
 }
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main(int argc, const char* argv[])
@@ -217,8 +218,10 @@ int main(int argc, const char* argv[])
   std::vector<BDD> chain;
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
-  std::cerr << "Total possible minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
-  possible.PrintCover();
+  if (verbose_flag) {
+    std::cerr << "Total possible minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
+    possible.PrintCover();
+  }
   BDD next = possible.PickOneMinterm(results); // pseudorandom initial state
   BDD visited = next;
 
@@ -235,7 +238,7 @@ int main(int argc, const char* argv[])
   chain.push_back(next);
   if (verbose_flag)
     std::cerr << "temp: " << temp.CountMinterm(ckt.dff.size()) << " - visited: " << visited.CountMinterm(ckt.dff.size()) << " = " <<  (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
-  while (possible.CountMinterm(ckt.dff.size()) > 0) {
+  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton<1>) < (possible.CountMinterm(ckt.dff.size()) / 3) ) {
     while((temp-visited).CountMinterm(ckt.dff.size()) > 0 && chain.size() < N)
     {
       if (verbose_flag)
@@ -270,7 +273,7 @@ int main(int argc, const char* argv[])
     }
   }
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  int t = __gnu_parallel::count_if(all_chains.begin(),all_chains.end(),isSingleton);
+  int t = __gnu_parallel::count_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
   std::cerr << "Created " << all_chains.size() - t << " chains of length > " << N << ".\n";
   std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
 std::cout << argv[1] << ":" << all_chains.size() << "," <<   all_chains.size() - t << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";

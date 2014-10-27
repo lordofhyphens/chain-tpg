@@ -3,7 +3,7 @@ CUDDLIBS=cudd mtr util dddmp epd obj st
 
 
 CUDDFLAGS:=-I$(CUDD)/include   -lm
-CXXFLAGS:= $(CUDDFLAGS) -DCPU -g -fopenmp -Wall -std=c++11 -mtune=native -L./util -lz
+CXXFLAGS:= $(CUDDFLAGS) -DCPU -g -fopenmp -Wall -std=c++11 -mtune=native -L./util -lz -march=native -D_GLIBCXX_PARALLEL
 CXX=g++
 .PHONY: all
 
