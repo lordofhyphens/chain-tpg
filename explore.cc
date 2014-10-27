@@ -262,10 +262,13 @@ int main(int argc, const char* argv[])
     }
   }
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  int t = __gnu_parallel::count_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
-  std::cerr << "Created " << all_chains.size() - t << " chains of length > " << N << ".\n";
-  std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
-  std::cout << argv[1] << ":" << all_chains.size() << "," <<   all_chains.size() - t << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
+  std::cout << argv[1] << ":" << all_chains.size();
+  std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
+  all_chains.erase(p, all_chains.end());
+
+  std::cerr << "Created " << all_chains.size() << " chains of length > " << N << ".\n";
+  std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << "\n";
+  std::cout << "," <<   all_chains.size() << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "\n";
 	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
