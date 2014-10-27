@@ -9,7 +9,8 @@
 #include <ctime>
 
 int verbose_flag = 0;
-const int N = 50;
+const int N = 8;
+const int simul_chains = 50;
 
 void
 DFF_DumpDot(
@@ -155,6 +156,7 @@ int sum_sizes(std::vector<std::vector<BDD> >::const_iterator start, std::vector<
     sum += i->size();
   return sum;
 }
+
 template <int T>
 bool isSingleton(const std::vector<BDD>& a) {
 	return (a.size() <= T);
@@ -180,35 +182,11 @@ int main(int argc, const char* argv[])
     std::cerr << "Dff_in " << it->first << " == " << ckt.dff_pair.at(it->first) << "\n";
     dff_in[ckt.dff_pair.at(it->first)]  = (random() % 2 > 0 ? false : true);
   }
-  /*
-  for (std::vector<std::map<unsigned int, bool> >::const_iterator it = inputs.begin(); it != inputs.end(); it++)
-  {
-    inps.clear();
-    inps.insert(it->begin(), it->end());
-    inps.insert(dff_in.begin(), dff_in.end());
-    for (std::map<unsigned int, bool>::const_iterator i = it->begin(); i != it->end(); i++)
-      std::cerr << i->first  << ":"<< (i->second ? "1" : "0")<< ";";
-    std::cerr << "\n";
-    for (std::map<unsigned int, bool>::const_iterator i = dff_in.begin(); i != dff_in.end(); i++)
-      std::cerr << i->first  << ":"<< (i->second ? "1" : "0")<< ";";
-    std::cerr << "\n";
-    for (std::map<unsigned int, bool>::const_iterator i = inps.begin(); i != inps.end(); i++)
-      std::cerr << (i->second ? "1" : "0");
-    std::cerr << "\n";
-    // find next set of state variable inputs
-    for (std::map<int, BDD>::const_iterator j = ckt.dff.begin(); j != ckt.dff.end(); j++)
-    {
-      dff_in[ckt.dff_pair.at(j->first)] = eval_minterm(ckt.getManager(), j->second, inps);
-    }
-    // print outputs
-    for (std::map<int, BDD>::const_iterator j = ckt.po.begin(); j != ckt.po.end(); j++)
-     std::cerr << (eval_minterm(ckt.getManager(), j->second, inps) ?  "True" : "False") << "\n";
-
-  }
-  */
 
   std::vector<BDD> results;
   std::vector<std::vector<BDD> > all_chains;
+  std::vector<std::vector<BDD> > temp_chains;
+
   for (std::map<int,int>::const_iterator it = ckt.dff_pair.begin(); it != ckt.dff_pair.end(); it++) 
   {
     results.push_back(ckt.getManager().bddVar(it->second));
@@ -218,65 +196,76 @@ int main(int argc, const char* argv[])
   std::vector<BDD> chain;
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
-  if (verbose_flag) {
-    std::cerr << "Total possible minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
-    possible.PrintCover();
-  }
-  BDD next = possible.PickOneMinterm(results); // pseudorandom initial state
-  BDD visited = next;
 
+  BDD next;
   std::vector<BDD> states;
-  if (verbose_flag)
-    std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
-  if (verbose_flag)
-    next.PrintCover();
-  BDD temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
-  next = (temp-visited).PickOneMinterm(results);
-
-  visited += next;
+  BDD temp;
+  BDD visited = ckt.getManager().bddZero();
+  // do N chains simultaneously?
+  for (int i = 0; i < simul_chains; i++) 
+  {
+    temp_chains.push_back(std::vector<BDD>());
+  }
+  for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
+  {
+    next = possible.PickOneMinterm(results); // pseudorandom initial state
+    it->push_back(next);
+    visited += next;
+    temp = img(ckt.dff, ckt.dff_pair, it->back(), ckt.getManager());
+    next = (temp-visited).PickOneMinterm(results);
+  }
   possible -= visited;
-  chain.push_back(next);
-  if (verbose_flag)
-    std::cerr << "temp: " << temp.CountMinterm(ckt.dff.size()) << " - visited: " << visited.CountMinterm(ckt.dff.size()) << " = " <<  (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
-  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton<1>) < (possible.CountMinterm(ckt.dff.size()) / 3) ) {
-    while((temp-visited).CountMinterm(ckt.dff.size()) > 0 && chain.size() < N)
+  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton<1>) < (possible.CountMinterm(ckt.dff.size()) / 3) ) 
+  {
+    while(temp_chains.size() > 0)
     {
-      if (verbose_flag)
-        std::cerr << "Computing image for position " << chain.size() << ", constrained based on ";
-      if (verbose_flag)
-        next.PrintCover();
-      if (verbose_flag)
-        std::cerr << (temp-visited).CountMinterm(ckt.dff.size()) << " minterms.\n";
-      temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
-      temp -= visited;
-      if (temp.CountMinterm(ckt.dff.size()) == 0)
-        continue;
-      next = temp.PickOneMinterm(results); // random selection
-      visited += next;
-      chain.push_back(next);
-    }
-    possible -= visited;
+//      std::cerr << "# of chains remaining: " << temp_chains.size() << "\n";
+      for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
+      {
+        BDD temp = img(ckt.dff, ckt.dff_pair, it->back(), ckt.getManager());
+        temp -= visited;
+        if (temp.CountMinterm(ckt.dff.size()) == 0) {
+          all_chains.push_back(*it);
+          it->clear();
+          continue;
+        }
+        next = temp.PickOneMinterm(results); // random selection
+        visited += next;
+        it->push_back(next);
+      }
+      std::vector<std::vector<BDD> >::iterator p = std::remove_if(temp_chains.begin(),temp_chains.end(), isSingleton<0>);
+      temp_chains.erase(p, temp_chains.end());
 
-    if (verbose_flag)
-      std::cerr << "Total possible remaining minterms: " << possible.CountMinterm(ckt.dff.size()) << ", minterms: ";
-    if (verbose_flag)
-      possible.PrintCover();
+//      std::cerr << "Next step for all " << simul_chains << " chains.\n";
+    }
+//    std::cerr << "Removing visited from possible.\n";
+    possible -= visited;
     if (possible.CountMinterm(ckt.dff.size()) > 0) {
-      all_chains.push_back(chain);
-      chain.clear();
-      if (verbose_flag)
-        std::cerr << "new chain" << "\n";
-      next = possible.PickOneMinterm(results);
-      temp = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
-      visited += next;
-      chain.push_back(next);
+      for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) {
+        all_chains.push_back(*it);
+      }
+      temp_chains.clear();
+
+      for (int i = 0; i < simul_chains; i++) 
+      {
+        temp_chains.push_back(std::vector<BDD>());
+      }
+      for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
+      {
+        if (possible.CountMinterm(ckt.dff.size()) > 0) {
+          next = possible.PickOneMinterm(results); // pseudorandom initial state
+          it->push_back(next);
+          visited += next;
+          possible -= visited;
+        }
+      }
     }
   }
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
   int t = __gnu_parallel::count_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
   std::cerr << "Created " << all_chains.size() - t << " chains of length > " << N << ".\n";
   std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
-std::cout << argv[1] << ":" << all_chains.size() << "," <<   all_chains.size() - t << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
+  std::cout << argv[1] << ":" << all_chains.size() << "," <<   all_chains.size() - t << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) - t) / (double)(all_chains.size()-t) << "\n";
 	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
