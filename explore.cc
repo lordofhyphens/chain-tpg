@@ -78,6 +78,9 @@ bool isConstant(const std::pair<int, BDD>& f) {
   return (Cudd_IsConstant(f.second.getNode()) == 1);
 }
 
+struct SizeCompare {
+  bool operator() (std::vector<BDD> i, std::vector<BDD> j) { return i.size() < j.size();}
+} myobj;
 
 
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, const int split = 0)
@@ -271,15 +274,15 @@ int main(int argc, const char* argv[])
     }
   }
 
-  std::cout << "Benchmark,total chains, total possible states,reachable states(?), states visited,chains larger than " << N << ",mean chain length (only > " << N << ",stopped because dead end,stopped because all possible visited\n";
+  std::cout << "Benchmark:# of probes, min chain length, total chains, total possible states,reachable states(?), states visited,chains larger than " << N << ", max chain length, mean chain length (only > " << N << "),stopped because dead end,stopped because all possible next-states already visited\n";
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  std::cout << argv[1] << ":" << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) ;
+  std::cout << argv[1] << ":" << simul_chains << "," << N << "," << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) ;
   std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
   all_chains.erase(p, all_chains.end());
 
   std::cerr << "Created " << all_chains.size() << " chains of length > " << N << ".\n";
   std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << "\n";
-  std::cout << "," <<   all_chains.size() << ","<< (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
+  std::cout << "," <<   all_chains.size() << ","<< max_element(all_chains.begin(), all_chain.end(), myobj).size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
 	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
