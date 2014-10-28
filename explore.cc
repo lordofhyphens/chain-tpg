@@ -10,7 +10,7 @@
 
 int verbose_flag = 0;
 const int N = 1;
-const int simul_chains = 50;
+const int simul_chains = 1;
 
 void
 DFF_DumpDot(
@@ -196,6 +196,8 @@ int main(int argc, const char* argv[])
   std::vector<BDD> chain;
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
+  int possible_count = possible.CountMinterm(ckt.dff.size());
+  std::cerr << "Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
 
   BDD next;
   std::vector<BDD> states;
@@ -269,9 +271,9 @@ int main(int argc, const char* argv[])
     }
   }
 
-  std::cout << "Benchmark,total chains, states visited,chains larger than " << N << ",mean chain length (only > " << N << ",stopped because dead end,stopped because all possible visited\n";
+  std::cout << "Benchmark,total chains, total possible states,reachable states(?), states visited,chains larger than " << N << ",mean chain length (only > " << N << ",stopped because dead end,stopped because all possible visited\n";
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  std::cout << argv[1] << ":" << all_chains.size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) ;
+  std::cout << argv[1] << ":" << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) ;
   std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
   all_chains.erase(p, all_chains.end());
 
