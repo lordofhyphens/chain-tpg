@@ -282,7 +282,7 @@ int main(int argc, const char* argv[])
 
   std::cerr << "Created " << all_chains.size() << " chains of length > " << N << ".\n";
   std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << "\n";
-  std::cout << "," <<   all_chains.size() << ","<< max_element(all_chains.begin(), all_chain.end(), myobj).size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
+  std::cout << "," <<   all_chains.size() << ","<< max_element(all_chains.begin(), all_chains.end(), myobj)->size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
 	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
