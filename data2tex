@@ -1,0 +1,21 @@
+#!/bin/bash
+# quick script to process the aggregated results file to output a LaTeX table.
+# Benchmark,total chains, total possible states,reachable states(?), states
+# visited,chains larger than 1,mean chain length (only > 1,stopped because dead
+# end,stopped because all possible visited
+
+echo "Benchmark & All & Reachable  & Covered  & Total & Avg Chain & Deadends & Terminated\\\\"
+echo "          &     &            &           & Chains & Length &&\\\\"
+while read x; do
+bench=$(basename $(echo $x | awk -F: /:/'{print $1}') | awk -F. '{print $1}')
+results=$(echo $x | awk -F: '{print $2}')
+total_chains=$(echo $results | awk -F, '{print $1'})
+total_states=$(echo $results | awk -F, '{print $2'})
+total_reachable=$(echo $results | awk -F, '{print $3'})
+covered=$(echo $results | awk -F, '{print $4'})
+mean_chain=$(echo $results | awk -F, '{print $6'})
+deadends=$(echo $results | awk -F, '{print $7'})
+all_visited=$(echo $results | awk -F, '{print $8'})
+
+echo $bench \& $total_states \& $total_reachable \& $covered \& $total_chains \& $mean_chain \& $deadends \& $all_visited \\\\
+done
