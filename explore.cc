@@ -9,7 +9,7 @@
 #include <ctime>
 
 int verbose_flag = 0;
-const int N = 1;
+const int N = 50;
 const int simul_chains = 1;
 
 void
@@ -144,11 +144,15 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd mana
 
 }
 
-// Overload operator <<  to perform logical swaps of variables.
 // Behaviour: Variable 1 becomes variable 2, ... while variable N becomes a dontcare
 // Variable order is in terms of the integer order, not the current BDD ordering.
-BDD operator<<(const BDD& dd, const int& places)
+BDD LeftShift(const Cudd& manager, const BDD& dd, const int& places, const int& nvars, const BDD& vars)
 {
+  // Figure out the current variable naming arrangement
+  // Isolate the variables of interest to shift.
+  // Determine which variables are being shifted "off" (become dontcares)
+  // for each variable shifted off, compute its positive and negative cofactors and add those to a new BDD.
+  // permute the new DD to the new variable arrangement
   return dd;
 }
 
@@ -160,10 +164,11 @@ int sum_sizes(std::vector<std::vector<BDD> >::const_iterator start, std::vector<
   return sum;
 }
 
-template <int T>
-bool isSingleton(const std::vector<BDD>& a) {
-	return (a.size() <= T);
-}
+struct isSingleton {
+  const unsigned int T;
+  isSingleton(int _T) : T(_T) {}
+  bool operator()(const std::vector<BDD>& a) { return (a.size() <= T);}
+};
 // basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main(int argc, const char* argv[])
 {
@@ -199,7 +204,7 @@ int main(int argc, const char* argv[])
   std::vector<BDD> chain;
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
-  int possible_count = possible.CountMinterm(ckt.dff.size());
+  long int possible_count = possible.CountMinterm(ckt.dff.size());
   std::cerr << "Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
 
   BDD next;
@@ -220,7 +225,7 @@ int main(int argc, const char* argv[])
     next = (temp-visited).PickOneMinterm(results);
   }
   possible -= visited;
-  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton<1>) < (possible.CountMinterm(ckt.dff.size()) / 3) ) 
+  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton(1)) < (possible.CountMinterm(ckt.dff.size()) / 3) ) 
   {
     while(temp_chains.size() > 0)
     {
@@ -245,7 +250,7 @@ int main(int argc, const char* argv[])
         visited += next;
         it->push_back(next);
       }
-      std::vector<std::vector<BDD> >::iterator p = std::remove_if(temp_chains.begin(),temp_chains.end(), isSingleton<0>);
+      std::vector<std::vector<BDD> >::iterator p = std::remove_if(temp_chains.begin(),temp_chains.end(), isSingleton(0));
       temp_chains.erase(p, temp_chains.end());
 
 //      std::cerr << "Next step for all " << simul_chains << " chains.\n";
@@ -273,17 +278,18 @@ int main(int argc, const char* argv[])
       }
     }
   }
-
-  std::cout << "Benchmark:# of probes, min chain length, total chains, total possible states,reachable states(?), states visited,chains larger than " << N << ", max chain length, mean chain length (only > " << N << "),stopped because dead end,stopped because all possible next-states already visited\n";
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  std::cout << argv[1] << ":" << simul_chains << "," << N << "," << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) ;
-  std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton<N>);
-  all_chains.erase(p, all_chains.end());
+  std::cout << "Benchmark:# of probes, min chain length, total chains, total possible states,reachable states(?), states visited,chains larger than min_chain_length, max chain length, mean chain length (only > min_chain_length),stopped because dead end,stopped because all possible next-states already visited\n";
+  for (int i = 0; i < N; i++) {
+    int total_chains = (sum_sizes(all_chains.begin(), all_chains.end()));
+    std::cout << argv[1] << ":" << simul_chains << "," << i << "," << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << total_chains;
+    std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(i));
+    all_chains.erase(p, all_chains.end());
+    std::cerr << "Created " << all_chains.size() << " chains of length > " << i << ".\n";
+    std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << "\n";
+    std::cout << "," <<   all_chains.size() << ","<< max_element(all_chains.begin(), all_chains.end(), myobj)->size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
 
-  std::cerr << "Created " << all_chains.size() << " chains of length > " << N << ".\n";
-  std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << "\n";
-  std::cout << "," <<   all_chains.size() << ","<< max_element(all_chains.begin(), all_chains.end(), myobj)->size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
-	
+}	
   FILE* fp = fopen("states.dot", "w");
   ckt.getManager().DumpDot(chain, NULL, NULL, fp);
   fclose(fp);
