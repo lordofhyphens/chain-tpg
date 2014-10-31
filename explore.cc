@@ -14,7 +14,7 @@
 
 int verbose_flag = 0;
 const int N = 50;
-const int simul_chains = 1;
+const int simul_chains = 32;
 
 void
 DFF_DumpDot(
@@ -255,7 +255,7 @@ int sum_sizes(std::vector<std::vector<BDD> >::const_iterator start, std::vector<
 {
   int sum = 0;
   for (std::vector<std::vector<BDD> >::const_iterator i = start; i != end; i++)
-    sum += i->size();
+    sum += (i->size() - 1);
   return sum;
 }
 
@@ -264,7 +264,6 @@ struct isSingleton {
   isSingleton(int _T) : T(_T) {}
   bool operator()(const std::vector<BDD>& a) { return (a.size() <= T);}
 };
-// basic simulator, simply evaluates the BDDs for the next-state and output at every vector
 int main(int argc, const char* argv[])
 {
   CUDD_Circuit ckt;
@@ -319,14 +318,13 @@ int main(int argc, const char* argv[])
     it->push_back(next);
   }
   possible -= visited;
-  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton(1)) < (possible.CountMinterm(ckt.dff.size()) / 3) ) 
+  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton(1)) < (possible.CountMinterm(ckt.dff.size())) * 3 ) 
   {
     while(temp_chains.size() > 0)
     {
       for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
       {
         BDD temp = img(ckt.dff, ckt.dff_pair, it->back(), ckt.getManager());
-        temp -= it->back(); // don't go back to itself.
 
         if (temp.CountMinterm(ckt.dff.size()) == 0) {
           dead_end++;
@@ -349,7 +347,7 @@ int main(int argc, const char* argv[])
       temp_chains.erase(p, temp_chains.end());
 
     }
-//    std::cerr << "Removing visited from possible.\n";
+
     possible -= visited;
     if (possible.CountMinterm(ckt.dff.size()) > 0) {
       for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) {
@@ -364,8 +362,7 @@ int main(int argc, const char* argv[])
       for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
       {
         if (possible.CountMinterm(ckt.dff.size()) > 0) {
-          next = visited.PickOneMinterm(results); // pseudorandom initial state
-          allterm -= next;
+          next = allterm.PickOneMinterm(results); // pseudorandom initial state
           it->push_back(next);
           visited += next;
           possible -= visited;
@@ -373,15 +370,19 @@ int main(int argc, const char* argv[])
       }
     }
   }
+  std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(1));
+  all_chains.erase(p, all_chains.end());
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
   std::cout << "Benchmark:# of probes, min chain length, total chains, total possible states,reachable states(?), states visited,chains larger than min_chain_length, max chain length, mean chain length (only > min_chain_length),stopped because dead end,stopped because all possible next-states already visited\n";
-  for (int i = 1; i < N; i++) {
+  for (int i = 2; i < N; i++) {
     int total_chains = (sum_sizes(all_chains.begin(), all_chains.end()));
+    if (all_chains.size() < 1)
+      continue;
     std::cout << argv[1] << ":" << simul_chains << "," << i << "," << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << total_chains;
     std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(i));
     all_chains.erase(p, all_chains.end());
     std::cerr << "Created " << all_chains.size() << " chains of length > " << i << ".\n";
-    std::cerr << "Mean chain length: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << "\n";
+    std::cerr << "Mean states exercised per chain: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << ", " << sum_sizes(all_chains.begin(), all_chains.end())<< " total states exercised." << "\n";
     std::cout << "," <<   all_chains.size() << ","<< max_element(all_chains.begin(), all_chains.end(), myobj)->size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
 
   }	
