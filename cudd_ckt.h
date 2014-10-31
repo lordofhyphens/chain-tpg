@@ -34,6 +34,10 @@ class CUDD_Circuit : public Circuit {
           case DFF:
           case INPT:
             result  = _manager.bddVar(pos);
+            if (gate->typ == DFF)
+              Cudd_bddSetNsVar(_manager.getManager(), pos);
+            else 
+              Cudd_bddSetPiVar(_manager.getManager(), pos);
             pi[pos] = result;
             break;
           case NOT:
@@ -79,8 +83,9 @@ class CUDD_Circuit : public Circuit {
         }
         net[pos] = result;
 
-        if (gate->typ == INPT)
+        if (gate->typ == INPT) {
           pi[pos] = result;
+        }
         if (gate->typ == DFF_IN) {
           dff[pos] = result;
           if (verbose_flag)
