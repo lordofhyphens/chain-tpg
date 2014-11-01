@@ -14,7 +14,7 @@
 
 int verbose_flag = 0;
 const int N = 50;
-const int simul_chains = 32;
+const int simul_chains = 1;
 
 void
 DFF_DumpDot(
@@ -65,27 +65,123 @@ bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,b
   return !Cudd_IsComplement(func);
 }
 
-// Expansion via input splitting The image of F w/r/t is the union of the image
-// of its positive and negative cofactors at some variable x.  have: set of
-// bdds for output functions want: bdd with output functions as variables?
-// form a function such that the image of f = f1,f2,f3..fN compute every time
-// we hit a terminal case, the minterm generated is the constant value * the
-// choices made along the way.  so if we've computed a*~b*c (postive cofactor
-// of a, negative cofactor of b, and positive of c)and the terminal case is 0,
-// then the minterm to add to the cube is ~a*b*~c;
-//
-// at every level of recursion, see if one of the arguments is constant. if it
-// is, compute the minterm for that and return it.
-//
+// retrieves one fully-specified minterm in the onset of root.
+BDD traverse_single(Cudd manager, BDD root, int i, int nvars) 
+{
+  manager.AutodynDisable();  // disable dynamic reordering
+  manager.SetStdout(stderr);
+  DdManager* ddman = manager.getManager();
+  double T_paths, E_paths;
+  DdNode* var = root.getNode(); 
+  DdNode* next;
+  bool complemented = root.getNode() == root.getRegularNode();
+  int q = 0, pa = i;
+  BDD minterm = manager.bddOne();
+  std::cerr << "Starting var " << manager.ReadInvPerm(Cudd_Regular(var)->index) << "\n";
+
+  std::cerr << "Looking to traverse Path " << pa <<"\n";
+
+  // rewrite: first, figure out the actual path counts. If currently
+  // complemented, ignore any uncomplemented edges that go to a constant node.
+  // if currently uncomplemented, ignore any complemented edges that go to a constant node.
+
+  while(Cudd_IsConstant(var) != 1) 
+  {
+    std::cerr << "paths to non-zero: " << Cudd_CountPathsToNonZero(var) << " = " 
+              << Cudd_CountPathsToNonZero(Cudd_Not(Cudd_T(var))) 
+              << " + " << Cudd_CountPathsToNonZero(Cudd_Not(Cudd_E(var))) << "\n";
+    std::cerr << "Minterms: " << Cudd_CountMinterm(ddman, var, nvars-q) << "\n";
+
+    // invert as necessary to take into account complementation of the parent node
+    DdNode* T = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_T(var)) : Cudd_T(var));
+    DdNode* E = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_E(var)) : Cudd_E(var));
+
+    // number of vars skipped
+    int skip_T = 0, skip_E = 0;
+
+    if (Cudd_IsConstant(T))
+    {
+      // skipped levels is nvars - q
+      skip_T = nvars;
+    } 
+    else 
+    {
+      // look at the relative positions in the variable order
+      skip_T = manager.ReadPerm(Cudd_Regular(T)->index) - (manager.ReadPerm(Cudd_Regular(var)->index)+1);
+    }
+    if (Cudd_IsConstant(E))
+    {
+      // skipped levels is nvars - q
+      skip_E = nvars;
+    }
+    else
+    {
+      skip_E = manager.ReadPerm(Cudd_Regular(E)->index) - (manager.ReadPerm(Cudd_Regular(var)->index)+1);
+    }
+    std::cerr << "Skips: (T, E) = (" << skip_T << "," << skip_E << ")\n";
+
+    std::cerr << "Nvars: " << nvars <<"\n"; 
+    // Figure out the number of minterms along paths to nonzero.
+    std::cerr << "T minterms: " << Cudd_CountMinterm(ddman, T, nvars-1) << "\n";
+    std::cerr << "E minterms: " << Cudd_CountMinterm(ddman, E, nvars-1) << "\n";
+    if (pa <  Cudd_CountMinterm(ddman, T, nvars-1))
+    {
+      std::cerr << "Chose T\n";
+      next = T;
+      minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+    } 
+    else 
+    { 
+      std::cerr << "Chose E\n";
+      pa -= Cudd_CountMinterm(ddman, T, nvars-1);
+      next = E;
+      minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+    }
+    q++;
+
+    if (next == E) 
+    {
+      nvars -= (skip_E +1);
+      while (skip_E > 0) {
+        // multiply the number of paths under here by 2 and make a decision
+        if (pa < 0) 
+        {
+        }
+        skip_E--;
+        q++;
+      }
+    }
+    if (next == T)
+    {
+      nvars -= (skip_T +1);
+    }
+    std::cerr << "Pa: " << pa << "\n";
+    var = next;
+
+  }
+
+  minterm.PrintCover();
+  manager.SetStdout(stdout);
+  return minterm;
+}
 
 bool isConstant(const std::pair<int, BDD>& f) {
   return (Cudd_IsConstant(f.second.getNode()) == 1);
 }
 
 struct SizeCompare {
-  bool operator() (std::vector<BDD> i, std::vector<BDD> j) { return i.size() < j.size();}
+  bool operator() (std::pair<std::vector<BDD>, int> i, std::pair<std::vector<BDD>, int> j) { return i.second < j.second;}
 } myobj;
 
+
+// Compute the image of f constrain C, then for each minterm in the image, compute 
+// the size of its image (less visited). Return the minterm with the largest image.
+BDD min_image(const std::map<int, BDD> f, std::map<int,int> mapping, const int nvars, BDD C, BDD visited, Cudd manager)
+{
+  BDD result = manager.bddOne() - visited;
+  int result_size = result.CountMinterm(nvars);
+  return result;
+}
 
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, const int split = 0)
 {
@@ -136,6 +232,18 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
    return img(v, mapping, manager, split+1) + img(vn, mapping, manager, split+1);
   }
 }
+// Expansion via input splitting The image of F w/r/t is the union of the image
+// of its positive and negative cofactors at some variable x.  have: set of
+// bdds for output functions want: bdd with output functions as variables?
+// form a function such that the image of f = f1,f2,f3..fN compute every time
+// we hit a terminal case, the minterm generated is the constant value * the
+// choices made along the way.  so if we've computed a*~b*c (postive cofactor
+// of a, negative cofactor of b, and positive of c)and the terminal case is 0,
+// then the minterm to add to the cube is ~a*b*~c;
+//
+// at every level of recursion, see if one of the arguments is constant. if it
+// is, compute the minterm for that and return it.
+//
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager, const int split = 0)
 {
 
@@ -251,18 +359,18 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
   return result;
 }
 
-int sum_sizes(std::vector<std::vector<BDD> >::const_iterator start, std::vector<std::vector<BDD> >::const_iterator end) 
+int sum_sizes(std::vector<std::pair<std::vector<BDD> ,int> >::const_iterator start, std::vector<std::pair<std::vector<BDD>, int> >::const_iterator end) 
 {
   int sum = 0;
-  for (std::vector<std::vector<BDD> >::const_iterator i = start; i != end; i++)
-    sum += (i->size() - 1);
+  for (std::vector<std::pair<std::vector<BDD>,int> >::const_iterator i = start; i != end; i++)
+    sum += i->second;
   return sum;
 }
 
 struct isSingleton {
   const unsigned int T;
   isSingleton(int _T) : T(_T) {}
-  bool operator()(const std::vector<BDD>& a) { return (a.size() <= T);}
+  bool operator()(const std::pair<std::vector<BDD>, int>& a) { return (a.second <= T);}
 };
 int main(int argc, const char* argv[])
 {
@@ -286,8 +394,9 @@ int main(int argc, const char* argv[])
   int all_visited = 0;
   int dead_end = 0;
   std::vector<BDD> results;
-  std::vector<std::vector<BDD> > all_chains;
-  std::vector<std::vector<BDD> > temp_chains;
+  std::vector<std::pair<std::vector<BDD>, int> > all_chains;
+  std::vector<std::pair<std::vector<BDD>, int> > temp_chains;
+  std::map<BDD, BDD> chain_images;
 
   for (std::map<int,int>::const_iterator it = ckt.dff_pair.begin(); it != ckt.dff_pair.end(); it++) 
   {
@@ -298,9 +407,12 @@ int main(int argc, const char* argv[])
   std::vector<BDD> chain;
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
+
+
   BDD allterm = possible;
   long int possible_count = possible.CountMinterm(ckt.dff.size());
   std::cerr << "Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
+
 
   BDD next;
   std::vector<BDD> states;
@@ -309,68 +421,84 @@ int main(int argc, const char* argv[])
   // do N chains simultaneously?
   for (int i = 0; i < simul_chains; i++) 
   {
-    temp_chains.push_back(std::vector<BDD>());
+    temp_chains.push_back(std::pair<std::vector<BDD>, int>(std::vector<BDD>(), 0));
   }
-  for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
+  for (std::vector<std::pair<std::vector<BDD>,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
   {
     next = allterm.PickOneMinterm(results); // pseudorandom initial state
     allterm -= next;
-    it->push_back(next);
+    it->first.push_back(next);
   }
   possible -= visited;
-  while (possible.CountMinterm(ckt.dff.size()) > 0 && count_if(all_chains.begin(),all_chains.end(), isSingleton(1)) < (possible.CountMinterm(ckt.dff.size())) * 3 ) 
+  while (possible.CountMinterm(ckt.dff.size()) > 0) 
   {
     while(temp_chains.size() > 0)
     {
-      for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
+      for (std::vector<std::pair<std::vector<BDD> ,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
       {
-        BDD temp = img(ckt.dff, ckt.dff_pair, it->back(), ckt.getManager());
+        BDD temp = img(ckt.dff, ckt.dff_pair, it->first.back(), ckt.getManager());
 
         if (temp.CountMinterm(ckt.dff.size()) == 0) {
           dead_end++;
           all_chains.push_back(*it);
-          it->clear();
+          it->first.clear();
           continue;
         }
-        temp -= visited;
-        if (temp.CountMinterm(ckt.dff.size()) == 0) {
-          all_visited++;
-          all_chains.push_back(*it);
-          it->clear();
+        if ((temp-visited).CountMinterm(ckt.dff.size()) == 0) {
+          next = ckt.getManager().bddZero();
+          // see if this state can jump to somewhere else that has been visited and has unvisited states on it.
+          for (std::map<BDD, BDD>::iterator mp = chain_images.begin(); mp!=chain_images.end(); mp++) {
+            // take the first one
+            if ((mp->second - visited).CountMinterm(ckt.dff.size()) > 0)
+            {
+              next = (mp->second - visited).PickOneMinterm(results);
+              chain_images[next] = temp;
+              visited+= next;
+              it->first.push_back(next);
+              mp = chain_images.end();
+            }
+          }
+          if (next == ckt.getManager().bddZero()) {
+            all_visited++;
+            all_chains.push_back(*it);
+            it->first.clear();
+          }
           continue;
         }
-        next = temp.PickOneMinterm(results); // random selection
+        next = (temp-visited).PickOneMinterm(results); // random selection
+        chain_images[next] = temp;
         visited+= next;
-        it->push_back(next);
+        it->first.push_back(next);
+        it->second += 1;
       }
-      std::vector<std::vector<BDD> >::iterator p = std::remove_if(temp_chains.begin(),temp_chains.end(), isSingleton(0));
+      std::vector<std::pair<std::vector<BDD>, int> >::iterator p = std::remove_if(temp_chains.begin(),temp_chains.end(), isSingleton(0));
       temp_chains.erase(p, temp_chains.end());
-
     }
 
     possible -= visited;
     if (possible.CountMinterm(ckt.dff.size()) > 0) {
-      for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) {
+      for (std::vector<std::pair<std::vector<BDD> ,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
+      {
         all_chains.push_back(*it);
       }
       temp_chains.clear();
 
       for (int i = 0; i < simul_chains; i++) 
       {
-        temp_chains.push_back(std::vector<BDD>());
+        temp_chains.push_back(std::pair<std::vector<BDD>, int>(std::vector<BDD>(), 0));
       }
-      for (std::vector<std::vector<BDD> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
+      for (std::vector<std::pair<std::vector<BDD> ,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
       {
         if (possible.CountMinterm(ckt.dff.size()) > 0) {
           next = allterm.PickOneMinterm(results); // pseudorandom initial state
-          it->push_back(next);
+          it->first.push_back(next);
           visited += next;
           possible -= visited;
         }
       }
     }
   }
-  std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(1));
+  std::vector<std::pair<std::vector<BDD>, int > >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(1));
   all_chains.erase(p, all_chains.end());
   std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
   std::cout << "Benchmark:# of probes, min chain length, total chains, total possible states,reachable states(?), states visited,chains larger than min_chain_length, max chain length, mean chain length (only > min_chain_length),stopped because dead end,stopped because all possible next-states already visited\n";
@@ -379,11 +507,10 @@ int main(int argc, const char* argv[])
     if (all_chains.size() < 1)
       continue;
     std::cout << argv[1] << ":" << simul_chains << "," << i << "," << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << total_chains;
-    std::vector<std::vector<BDD> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(i));
+    std::vector<std::pair<std::vector<BDD>,int> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(i));
     all_chains.erase(p, all_chains.end());
     std::cerr << "Created " << all_chains.size() << " chains of length > " << i << ".\n";
     std::cerr << "Mean states exercised per chain: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << ", " << sum_sizes(all_chains.begin(), all_chains.end())<< " total states exercised." << "\n";
-    std::cout << "," <<   all_chains.size() << ","<< max_element(all_chains.begin(), all_chains.end(), myobj)->size() << "," << (sum_sizes(all_chains.begin(), all_chains.end()) ) / (double)(all_chains.size()) << "," << dead_end << "," << all_visited << "\n";
 
   }	
 
