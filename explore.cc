@@ -1,12 +1,11 @@
 #include "cudd_ckt.h"
+#include "bdd_img.h"
 #include "util/vectors.h"
 #include <algorithm>
 #include <parallel/algorithm>
 #include <cstring>
 #include "cudd.h"
 #include <limits>
-
-
 
 #include <random>
 #include <ctime>
@@ -15,36 +14,6 @@
 int verbose_flag = 0;
 const int N = 50;
 const int simul_chains = 1;
-
-void
-DFF_DumpDot(
-  const std::map<int, BDD>& nodes,
-  CUDD_Circuit ckt,
-  FILE * fp = stdout) 
-{
-    std::cerr << "Dumping to Dot\n";
-    DdManager *mgr = ckt.getManager().getManager();
-    int n = nodes.size();
-    DdNode **F = new DdNode *[n];
-    char ** inames = new char *[ckt.pi.size()];
-    char ** onames = new char *[nodes.size()];
-    for (std::map<int, BDD>::iterator i = ckt.pi.begin(); i != ckt.pi.end(); i++) {
-      inames[std::distance(ckt.pi.begin(),i)] = new char[ckt.at(i->first).name.size()];
-      strcpy(inames[std::distance(ckt.pi.begin(),i)],ckt.at(i->first).name.c_str());
-    }
-    std::cerr << "wrote pi name list\n";
-    for (std::map<int, BDD>::const_iterator i = nodes.begin(); i != nodes.end(); i++) {
-      F[std::distance(nodes.begin(),i)] = i->second.getNode();
-      onames[std::distance(nodes.begin(),i)] = new char[ckt.at(i->first).name.size()];
-      strcpy(onames[std::distance(nodes.begin(),i)],ckt.at(i->first).name.c_str());
-    }
-    Cudd_DumpDot(mgr, n, F, inames, onames, fp);
-    delete [] F;
-    delete [] inames;
-    delete [] onames;
-
-} // vector<BDD>::DumpDot
-
 // Traverse a BDD for a single function and minterm 
 bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,bool> vars)
 {
@@ -71,10 +40,8 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
   manager.AutodynDisable();  // disable dynamic reordering
   manager.SetStdout(stderr);
   DdManager* ddman = manager.getManager();
-  double T_paths, E_paths;
   DdNode* var = root.getNode(); 
   DdNode* next;
-  bool complemented = root.getNode() == root.getRegularNode();
   int q = 0, pa = i;
   BDD minterm = manager.bddOne();
   std::cerr << "Starting var " << manager.ReadInvPerm(Cudd_Regular(var)->index) << "\n";
@@ -165,9 +132,6 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
   return minterm;
 }
 
-bool isConstant(const std::pair<int, BDD>& f) {
-  return (Cudd_IsConstant(f.second.getNode()) == 1);
-}
 
 struct SizeCompare {
   bool operator() (std::pair<std::vector<BDD>, int> i, std::pair<std::vector<BDD>, int> j) { return i.second < j.second;}
@@ -179,82 +143,9 @@ struct SizeCompare {
 BDD min_image(const std::map<int, BDD> f, std::map<int,int> mapping, const int nvars, BDD C, BDD visited, Cudd manager)
 {
   BDD result = manager.bddOne() - visited;
-  int result_size = result.CountMinterm(nvars);
   return result;
 }
 
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, const int split = 0)
-{
-  // mapping is needed to match output functions to input variables when generating
-  // next-state.
-  // first, check to see if any of the functions are constant 0 or constant 1.
-  // if there are, we have a terminal case
-  if (__gnu_parallel::count_if(f.begin(), f.end(), isConstant) > 0) 
-  {
-    BDD constant_terms = manager.bddOne(), pos = manager.bddOne();
-    for (std::map<int, BDD>::const_iterator it = f.begin(); it != f.end(); it++) {
-      if (isConstant(*it))
-      { 
-        // if this term is constant 1
-        if (it->second == manager.bddOne()) 
-        {
-          constant_terms *= (manager.bddVar(mapping[it->first]));
-        } else {
-          constant_terms *= ~(manager.bddVar(mapping[it->first]));
-        }
-      } else {
-        pos *= (manager.bddVar(mapping[it->first]) + ~manager.bddVar(mapping[it->first]));
-      }
-    }
-
-    // terminal case. The minterm is equal to 
-    // y_n = f_n if == 1, ~f_n otherwise, AND the ANDing of all constant nodes and their complements.
-    // return this minterm
-    return constant_terms*pos;
-  } 
-  else 
-  {
-   std::map<int, BDD> v = f;
-   std::map<int, BDD> vn = f;
-   if (verbose_flag) 
-     std::cerr << "Splitting on var x" << manager.ReadPerm(split) << "\n";
-   BDD p = manager.ReadVars(split);
-    // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
-    for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
-    {
-      it->second = it->second.Cofactor(p);
-    }
-    for (std::map<int, BDD>::iterator it = vn.begin(); it != vn.end(); it++) 
-    {
-      it->second = it->second.Cofactor(~p);
-    }
-
-   return img(v, mapping, manager, split+1) + img(vn, mapping, manager, split+1);
-  }
-}
-// Expansion via input splitting The image of F w/r/t is the union of the image
-// of its positive and negative cofactors at some variable x.  have: set of
-// bdds for output functions want: bdd with output functions as variables?
-// form a function such that the image of f = f1,f2,f3..fN compute every time
-// we hit a terminal case, the minterm generated is the constant value * the
-// choices made along the way.  so if we've computed a*~b*c (postive cofactor
-// of a, negative cofactor of b, and positive of c)and the terminal case is 0,
-// then the minterm to add to the cube is ~a*b*~c;
-//
-// at every level of recursion, see if one of the arguments is constant. if it
-// is, compute the minterm for that and return it.
-//
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager, const int split = 0)
-{
-
-  std::map<int, BDD> v = f;
-  for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
-  {
-    it->second = it->second.Constrain(C);
-  }
-  return img(v, mapping, manager);
-
-}
 
 // Behaviour: Variable 1 becomes variable 2, ... while variable N becomes a dontcare
 // Variable order is in terms of the integer order, not the current BDD ordering.
@@ -367,11 +258,6 @@ int sum_sizes(std::vector<std::pair<std::vector<BDD> ,int> >::const_iterator sta
   return sum;
 }
 
-struct isSingleton {
-  const unsigned int T;
-  isSingleton(int _T) : T(_T) {}
-  bool operator()(const std::pair<std::vector<BDD>, int>& a) { return (a.second <= T);}
-};
 int main(int argc, const char* argv[])
 {
   CUDD_Circuit ckt;
