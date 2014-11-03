@@ -25,6 +25,8 @@ class CUDD_Circuit : public Circuit {
     void form_bdds();
     Cudd getManager() { return _manager; }
 };
+
+
 void
 DFF_DumpDot(
   const std::map<int, BDD>& nodes,

@@ -10,10 +10,9 @@
 #include <random>
 #include <ctime>
 
+inline size_t random_0_to_n(size_t n) { srand(time(NULL)); return (rand() % n);  }
 
 int verbose_flag = 0;
-const int N = 50;
-const int simul_chains = 1;
 
 // Traverse a BDD for a single function and minterm 
 bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,bool> vars)
@@ -160,11 +159,12 @@ int main(int argc, const char* argv[])
   ckt.form_bdds();
 
   std::vector<BDD> results;
-  std::map<BDD, BDD> chain_images; // for each BDD traveled, store its image.
+  std::map<DdNode*, BDD> chain_images; // for each BDD traveled, store its image.
+
+  std::vector<chain_t> all_chains; // all chains
+  chain_t chain; // for one-at-a-time, contains the current chain.
 
   std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
-
-  std::vector<BDD> chain;
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
   
@@ -173,7 +173,122 @@ int main(int argc, const char* argv[])
   long int possible_count = possible.CountMinterm(ckt.dff.size());
   std::cerr << "Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
 
-  BDD next = possible.PickOneMinterm(ckt.pi_vars);
+  BDD next = possible.PickOneMinterm(ckt.dff_vars);
+  chain.push_empty(next);
+  BDD visited = next;
+
+  // Heuristic: pick a next-minterm randomly, add it to the chain.  Also add to
+  // visited.
+  //
+  // If the next image has no minterms in it that haven't already been visited,
+  // pick a next-state that has unvisited states adjacent to it.
+  // If a state has no more unvisited next-states, delete its key.
+  // Stop once we've reached everything possible from
+  // this chain.
+  //
+  do
+  {
+    BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
+    if  ((next_img- visited).CountMinterm(ckt.dff.size()) == 1)
+      chain_images.erase(next.getNode());
+    if ( (next_img - visited).CountMinterm(ckt.dff.size()) == 0)
+    {
+      std::cerr << "No unvisited states" << "\n";
+      chain_images.erase(next.getNode());
+
+      // pick a next state that we can get somewhere else 
+      do
+      {
+        if (next_img.CountMinterm(ckt.dff.size()) == 0) 
+        {
+          // end the chain?
+          std::cerr << "Starting new chain\n";
+
+          all_chains.push_back(chain);
+          chain.clear();
+          possible -= visited;
+          if (possible.CountMinterm(ckt.dff.size()) == 0)
+          {
+            std::cerr << "Nothing left in possible, abort." << "\n";
+            next = ckt.getManager().bddOne();
+            continue;
+          }
+          std::map<DdNode*, BDD>::iterator item = chain_images.begin();
+          std::pair<DdNode*, BDD> temp = *item;
+
+          while (chain_images.count(temp.first) == 0 && chain_images.size() > 0)
+          {
+            item = chain_images.begin();
+            std::advance(item, random_0_to_n(chain_images.size()) );
+            temp = *item;
+            if ((temp.second - visited).CountMinterm(ckt.dff.size()) == 0)
+              chain_images.erase(temp.first);
+          }
+          std::cerr << "Found a non-empty image. " <<(item->second - visited).CountMinterm(ckt.dff.size()) << "minterms." << "\n";
+          if ((item->second - visited).CountMinterm(ckt.dff.size()) == 0 || chain_images.size() == 0) {
+            std::cerr << "Picking from another inital state."<<"\n"; 
+            next = (possible-visited).PickOneMinterm(ckt.dff_vars);
+            visited += next;
+            chain.push_empty(next);
+            continue;
+          }
+            
+          next = (item->second - visited).PickOneMinterm(ckt.dff_vars);
+          visited += next;
+          if  ((item->second - visited).CountMinterm(ckt.dff.size()) == 1)
+            chain_images.erase(next.getNode());
+          continue;
+        }
+        else 
+        {
+          next = next_img.PickOneMinterm(ckt.dff_vars);
+        }
+        if (chain_images.count(next.getNode()) > 0)
+        {
+          if ((chain_images[next.getNode()] - visited).CountMinterm(ckt.dff.size()) == 0 )
+          {
+            // This has no new nodes.
+            std::cerr << "Exhausted next-states for this minterm\n";
+            chain_images.erase(next.getNode());
+            next = ckt.getManager().bddZero();
+          }
+        }
+        else
+        {
+          // This was already visited and exhausted. 
+          next_img -= next;
+          next = ckt.getManager().bddZero();
+        }
+      }
+      while (next == ckt.getManager().bddZero());
+      chain.push_empty(next);
+    }
+    else
+    {
+      std::cerr << "Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
+      next.PrintCover();
+      
+
+      if (chain_images.count(next.getNode()) == 0 &&  (next_img - visited).CountMinterm(ckt.dff.size()) > 1)
+      {
+        chain_images[next.getNode()] = next_img;
+      }
+      next = (next_img - visited).PickOneMinterm(ckt.dff_vars); 
+      visited += next;
+      chain.push(next);
+    }
+    std::cerr << "chain_image: " << chain_images.size() << "\n";
+  }
+  while ((chain_images.size() > 0 || possible.CountMinterm(ckt.dff.size()) > 0)&& next != ckt.getManager().bddOne());
+  size_t nodes_visited = 0, hops =0;
+  std::vector<chain_t>::iterator p = std::remove_if(all_chains.begin(), all_chains.end(), isSingleton(0));
+  all_chains.erase(p,all_chains.end());
+  for (std::vector<chain_t>::iterator it = all_chains.begin(); it != all_chains.end(); it++)
+  {
+    nodes_visited += it->size;
+    hops += it->data.size();
+  }
+    std::cerr << nodes_visited << "," << hops<< "\n";
 
 
   return 0;
