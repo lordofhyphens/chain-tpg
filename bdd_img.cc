@@ -78,3 +78,107 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd mana
 bool isConstant(const std::pair<int, BDD>& f) {
   return (Cudd_IsConstant(f.second.getNode()) == 1);
 }
+// Behaviour: Variable 1 becomes variable 2, ... while variable N becomes a dontcare
+// Variable order is in terms of the integer order, not the current BDD ordering.
+// List of vars to shift is in vars
+BDD LeftShift(const Cudd& manager, const BDD& dd)
+{
+  int* varlist = new int[manager.ReadSize()];
+  std::vector<int> allvars;
+  std::vector<int> shiftvars;
+  BDD result = dd;
+  // find lowest shift var and cofactor it out.
+  // iterate over each following var and move it to the previous position if 
+
+  // iterate through all of the variable ids, get the lowest 
+  int m = std::numeric_limits<int>::max();
+  for (int i = 0; i < manager.ReadSize(); i++) {
+    if (Cudd_bddIsNsVar(manager.getManager(), i) == 1 && i <= m)
+      m = i;
+    varlist[i] = i;
+  }
+  std::cerr << m << "\n";
+  BDD remove = manager.bddVar(m);
+  result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
+  result.PrintCover();
+  // build the permute list.
+
+  // cofactor out this var to get it to dontcare
+  // set up the varlist
+  int last = m;
+  for (int i = 0; i < manager.ReadSize(); i++) {
+    if (Cudd_bddIsPiVar(manager.getManager(), i))
+      varlist[i] = i;
+    if (Cudd_bddIsNsVar(manager.getManager(), i))
+      if (i > m) {
+        varlist[last] = i;
+        varlist[i] = last;
+        last = i;
+        result = result.Permute(varlist);
+        for (int i = 0; i < manager.ReadSize(); i++) {
+          varlist[i] = i;
+        }
+      }
+  }
+
+  // Figure out the current variable naming arrangement
+  // Isolate the variables of interest to shift.
+  // Determine which variables are being shifted "off" (become dontcares)
+  // for each variable shifted off, compute its positive and negative cofactors and add those to a new BDD.
+  // permute the new DD to the new variable arrangement
+
+  delete [] varlist; 
+  return result;
+}
+
+BDD RightShift(const Cudd& manager, const BDD& dd)
+{
+  int* varlist = new int[manager.ReadSize()];
+  std::vector<int> allvars;
+  std::vector<int> shiftvars;
+  BDD result = dd;
+  // find lowest shift var and cofactor it out.
+  // iterate over each following var and move it to the previous position if 
+
+  // iterate through all of the variable ids, get the lowest 
+  int m = std::numeric_limits<int>::min();
+  for (int i = manager.ReadSize(); i >= 0 ; i--) {
+    if (Cudd_bddIsNsVar(manager.getManager(), i) == 1 && i >= m)
+      m = i;
+    varlist[i] = i;
+  }
+  std::cerr << m << "\n";
+  BDD remove = manager.bddVar(m);
+  result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
+  result.PrintCover();
+  // build the permute list.
+
+  // cofactor out this var to get it to dontcare
+  // set up the varlist
+  int last = m;
+  for (int i = manager.ReadSize(); i >= 0 ; i--) {
+    if (Cudd_bddIsPiVar(manager.getManager(), i))
+      varlist[i] = i;
+    if (Cudd_bddIsNsVar(manager.getManager(), i))
+      if (i < m) {
+        varlist[last] = i;
+        varlist[i] = last;
+        last = i;
+        result = result.Permute(varlist);
+        for (int i = 0; i < manager.ReadSize(); i++) {
+          varlist[i] = i;
+        }
+      }
+  }
+
+  // Figure out the current variable naming arrangement
+  // Isolate the variables of interest to shift.
+  // Determine which variables are being shifted "off" (become dontcares)
+  // for each variable shifted off, compute its positive and negative cofactors and add those to a new BDD.
+  // permute the new DD to the new variable arrangement
+
+  delete [] varlist; 
+  return result;
+}
+
+

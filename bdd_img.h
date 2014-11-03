@@ -16,4 +16,6 @@ struct isSingleton {
 
 bool isConstant(const std::pair<int, BDD>& f);
 
+BDD LeftShift(const Cudd& manager, const BDD& dd);
+BDD RightShift(const Cudd& manager, const BDD& dd);
 #endif // BDD_IMG_H

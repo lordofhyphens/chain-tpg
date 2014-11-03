@@ -44,9 +44,15 @@ void CUDD_Circuit::form_bdds()
           case INPT:
             result  = _manager.bddVar(pos);
             if (gate->typ == DFF)
+            {
               Cudd_bddSetNsVar(_manager.getManager(), pos);
-            else 
+              dff_vars.push_back(result);
+            }
+            else
+            {
               Cudd_bddSetPiVar(_manager.getManager(), pos);
+              pi_vars.push_back(result);
+            }
             pi[pos] = result;
             break;
           case NOT:

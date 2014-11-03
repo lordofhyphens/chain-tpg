@@ -35,7 +35,4 @@ $(CUDD)/Makefile:
 clean: 
 	rm -f explore *.o
 test: explore
-	./$^ ../bench/s27.bench
-	dot -Tpdf -O states.dot
-	dot -Tpdf -O ckt.dot
-	dot -Tpdf -O const.dot
+	./$< ../bench/s27.bench

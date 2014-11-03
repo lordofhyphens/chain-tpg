@@ -14,6 +14,7 @@
 int verbose_flag = 0;
 const int N = 50;
 const int simul_chains = 1;
+
 // Traverse a BDD for a single function and minterm 
 bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,bool> vars)
 {
@@ -137,119 +138,6 @@ struct SizeCompare {
   bool operator() (std::pair<std::vector<BDD>, int> i, std::pair<std::vector<BDD>, int> j) { return i.second < j.second;}
 } myobj;
 
-
-// Compute the image of f constrain C, then for each minterm in the image, compute 
-// the size of its image (less visited). Return the minterm with the largest image.
-BDD min_image(const std::map<int, BDD> f, std::map<int,int> mapping, const int nvars, BDD C, BDD visited, Cudd manager)
-{
-  BDD result = manager.bddOne() - visited;
-  return result;
-}
-
-
-// Behaviour: Variable 1 becomes variable 2, ... while variable N becomes a dontcare
-// Variable order is in terms of the integer order, not the current BDD ordering.
-// List of vars to shift is in vars
-BDD LeftShift(const Cudd& manager, const BDD& dd)
-{
-  int* varlist = new int[manager.ReadSize()];
-  std::vector<int> allvars;
-  std::vector<int> shiftvars;
-  BDD result = dd;
-  // find lowest shift var and cofactor it out.
-  // iterate over each following var and move it to the previous position if 
-
-  // iterate through all of the variable ids, get the lowest 
-  int m = std::numeric_limits<int>::max();
-  for (int i = 0; i < manager.ReadSize(); i++) {
-    if (Cudd_bddIsNsVar(manager.getManager(), i) == 1 && i <= m)
-      m = i;
-    varlist[i] = i;
-  }
-  std::cerr << m << "\n";
-  BDD remove = manager.bddVar(m);
-  result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
-  result.PrintCover();
-  // build the permute list.
-
-  // cofactor out this var to get it to dontcare
-  // set up the varlist
-  int last = m;
-  for (int i = 0; i < manager.ReadSize(); i++) {
-    if (Cudd_bddIsPiVar(manager.getManager(), i))
-      varlist[i] = i;
-    if (Cudd_bddIsNsVar(manager.getManager(), i))
-      if (i > m) {
-        varlist[last] = i;
-        varlist[i] = last;
-        last = i;
-        result = result.Permute(varlist);
-        for (int i = 0; i < manager.ReadSize(); i++) {
-          varlist[i] = i;
-        }
-      }
-  }
-
-  // Figure out the current variable naming arrangement
-  // Isolate the variables of interest to shift.
-  // Determine which variables are being shifted "off" (become dontcares)
-  // for each variable shifted off, compute its positive and negative cofactors and add those to a new BDD.
-  // permute the new DD to the new variable arrangement
-
-  delete [] varlist; 
-  return result;
-}
-
-BDD RightShift(const Cudd& manager, const BDD& dd)
-{
-  int* varlist = new int[manager.ReadSize()];
-  std::vector<int> allvars;
-  std::vector<int> shiftvars;
-  BDD result = dd;
-  // find lowest shift var and cofactor it out.
-  // iterate over each following var and move it to the previous position if 
-
-  // iterate through all of the variable ids, get the lowest 
-  int m = std::numeric_limits<int>::min();
-  for (int i = manager.ReadSize(); i >= 0 ; i--) {
-    if (Cudd_bddIsNsVar(manager.getManager(), i) == 1 && i >= m)
-      m = i;
-    varlist[i] = i;
-  }
-  std::cerr << m << "\n";
-  BDD remove = manager.bddVar(m);
-  result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
-  result.PrintCover();
-  // build the permute list.
-
-  // cofactor out this var to get it to dontcare
-  // set up the varlist
-  int last = m;
-  for (int i = manager.ReadSize(); i >= 0 ; i--) {
-    if (Cudd_bddIsPiVar(manager.getManager(), i))
-      varlist[i] = i;
-    if (Cudd_bddIsNsVar(manager.getManager(), i))
-      if (i < m) {
-        varlist[last] = i;
-        varlist[i] = last;
-        last = i;
-        result = result.Permute(varlist);
-        for (int i = 0; i < manager.ReadSize(); i++) {
-          varlist[i] = i;
-        }
-      }
-  }
-
-  // Figure out the current variable naming arrangement
-  // Isolate the variables of interest to shift.
-  // Determine which variables are being shifted "off" (become dontcares)
-  // for each variable shifted off, compute its positive and negative cofactors and add those to a new BDD.
-  // permute the new DD to the new variable arrangement
-
-  delete [] varlist; 
-  return result;
-}
-
 int sum_sizes(std::vector<std::pair<std::vector<BDD> ,int> >::const_iterator start, std::vector<std::pair<std::vector<BDD>, int> >::const_iterator end) 
 {
   int sum = 0;
@@ -265,140 +153,28 @@ int main(int argc, const char* argv[])
   std::vector<std::map<unsigned int, bool> > inputs;
   ckt.read_bench(argv[1]);
   if (verbose_flag)
+  {
     std::cerr << "Printing ckt.\n";
-  //ckt.print();
+    ckt.print();
+  }
   ckt.form_bdds();
 
-  std::map<unsigned int, bool> inps; // temporary map to join dff vars and input vars.
-  std::map<unsigned int, bool> dff_in;
-  // start at a random state
-  for (std::map<int, BDD>::const_iterator it = ckt.dff.begin(); it != ckt.dff.end(); it++) 
-  {
-    std::cerr << "Dff_in " << it->first << " == " << ckt.dff_pair.at(it->first) << "\n";
-    dff_in[ckt.dff_pair.at(it->first)]  = (random() % 2 > 0 ? false : true);
-  }
-  int all_visited = 0;
-  int dead_end = 0;
   std::vector<BDD> results;
-  std::vector<std::pair<std::vector<BDD>, int> > all_chains;
-  std::vector<std::pair<std::vector<BDD>, int> > temp_chains;
-  std::map<BDD, BDD> chain_images;
+  std::map<BDD, BDD> chain_images; // for each BDD traveled, store its image.
 
-  for (std::map<int,int>::const_iterator it = ckt.dff_pair.begin(); it != ckt.dff_pair.end(); it++) 
-  {
-    results.push_back(ckt.getManager().bddVar(it->second));
-  }
   std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
 
   std::vector<BDD> chain;
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
-
+  
 
   BDD allterm = possible;
   long int possible_count = possible.CountMinterm(ckt.dff.size());
   std::cerr << "Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
 
+  BDD next = possible.PickOneMinterm(ckt.pi_vars);
 
-  BDD next;
-  std::vector<BDD> states;
-  BDD temp;
-  BDD visited = ckt.getManager().bddZero();
-  // do N chains simultaneously?
-  for (int i = 0; i < simul_chains; i++) 
-  {
-    temp_chains.push_back(std::pair<std::vector<BDD>, int>(std::vector<BDD>(), 0));
-  }
-  for (std::vector<std::pair<std::vector<BDD>,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
-  {
-    next = allterm.PickOneMinterm(results); // pseudorandom initial state
-    allterm -= next;
-    it->first.push_back(next);
-  }
-  possible -= visited;
-  while (possible.CountMinterm(ckt.dff.size()) > 0) 
-  {
-    while(temp_chains.size() > 0)
-    {
-      for (std::vector<std::pair<std::vector<BDD> ,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
-      {
-        BDD temp = img(ckt.dff, ckt.dff_pair, it->first.back(), ckt.getManager());
-
-        if (temp.CountMinterm(ckt.dff.size()) == 0) {
-          dead_end++;
-          all_chains.push_back(*it);
-          it->first.clear();
-          continue;
-        }
-        if ((temp-visited).CountMinterm(ckt.dff.size()) == 0) {
-          next = ckt.getManager().bddZero();
-          // see if this state can jump to somewhere else that has been visited and has unvisited states on it.
-          for (std::map<BDD, BDD>::iterator mp = chain_images.begin(); mp!=chain_images.end(); mp++) {
-            // take the first one
-            if ((mp->second - visited).CountMinterm(ckt.dff.size()) > 0)
-            {
-              next = (mp->second - visited).PickOneMinterm(results);
-              chain_images[next] = temp;
-              visited+= next;
-              it->first.push_back(next);
-              mp = chain_images.end();
-            }
-          }
-          if (next == ckt.getManager().bddZero()) {
-            all_visited++;
-            all_chains.push_back(*it);
-            it->first.clear();
-          }
-          continue;
-        }
-        next = (temp-visited).PickOneMinterm(results); // random selection
-        chain_images[next] = temp;
-        visited+= next;
-        it->first.push_back(next);
-        it->second += 1;
-      }
-      std::vector<std::pair<std::vector<BDD>, int> >::iterator p = std::remove_if(temp_chains.begin(),temp_chains.end(), isSingleton(0));
-      temp_chains.erase(p, temp_chains.end());
-    }
-
-    possible -= visited;
-    if (possible.CountMinterm(ckt.dff.size()) > 0) {
-      for (std::vector<std::pair<std::vector<BDD> ,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
-      {
-        all_chains.push_back(*it);
-      }
-      temp_chains.clear();
-
-      for (int i = 0; i < simul_chains; i++) 
-      {
-        temp_chains.push_back(std::pair<std::vector<BDD>, int>(std::vector<BDD>(), 0));
-      }
-      for (std::vector<std::pair<std::vector<BDD> ,int> >::iterator it = temp_chains.begin(); it != temp_chains.end(); it++) 
-      {
-        if (possible.CountMinterm(ckt.dff.size()) > 0) {
-          next = allterm.PickOneMinterm(results); // pseudorandom initial state
-          it->first.push_back(next);
-          visited += next;
-          possible -= visited;
-        }
-      }
-    }
-  }
-  std::vector<std::pair<std::vector<BDD>, int > >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(1));
-  all_chains.erase(p, all_chains.end());
-  std::cerr << "\nCreated " << all_chains.size() << " chains.\n";
-  std::cout << "Benchmark:# of probes, min chain length, total chains, total possible states,reachable states(?), states visited,chains larger than min_chain_length, max chain length, mean chain length (only > min_chain_length),stopped because dead end,stopped because all possible next-states already visited\n";
-  for (int i = 2; i < N; i++) {
-    int total_chains = (sum_sizes(all_chains.begin(), all_chains.end()));
-    if (all_chains.size() < 1)
-      continue;
-    std::cout << argv[1] << ":" << simul_chains << "," << i << "," << all_chains.size() << "," << pow(2,ckt.dff.size()) << "," << possible_count << "," << total_chains;
-    std::vector<std::pair<std::vector<BDD>,int> >::iterator p = std::remove_if(all_chains.begin(),all_chains.end(),isSingleton(i));
-    all_chains.erase(p, all_chains.end());
-    std::cerr << "Created " << all_chains.size() << " chains of length > " << i << ".\n";
-    std::cerr << "Mean states exercised per chain: " << (sum_sizes(all_chains.begin(), all_chains.end())) / (double)(all_chains.size()) << ", " << sum_sizes(all_chains.begin(), all_chains.end())<< " total states exercised." << "\n";
-
-  }	
 
   return 0;
 }
