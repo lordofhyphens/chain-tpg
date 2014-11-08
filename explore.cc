@@ -300,6 +300,13 @@ int main(int argc, const char* argv[])
       std::cerr << "chain_image: " << chain_images.size() << "\n";
   }
   while ((chain_images.size() > 0 || possible.CountMinterm(ckt.dff.size()) > 0)&& next != ckt.getManager().bddOne());
+
+
+  // join chains procedure
+  // for each chain, create a BDD of the last N states.
+  // Shift the bdd j times and look for a state minterm in the beginning of every chain 
+  // 
+  //
   size_t nodes_visited = 0, hops =0;
   std::vector<chain_t>::iterator p = std::remove_if(all_chains.begin(), all_chains.end(), isSingleton(0));
   all_chains.erase(p,all_chains.end());
