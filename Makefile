@@ -4,7 +4,7 @@ objs=bdd_img.o explore.o cudd_ckt.o
 cudd_objs=$(CUDD)/obj/libobj.a $(CUDD)/cudd/libcudd.a $(CUDD)/mtr/libmtr.a $(CUDD)/st/libst.a $(CUDD)/util/libutil.a $(CUDD)/epd/libepd.a util/libcktutil.a
 
 CUDDFLAGS:=-I$(CUDD)/include
-CXXFLAGS:= $(CUDDFLAGS) -DCPU -g -fopenmp -Wall -std=c++11 -mtune=native -march=native -D_GLIBCXX_PARALLEL
+CXXFLAGS:= $(CUDDFLAGS) -DCPU -g -Wall -std=c++11 -mtune=native -march=native -fopenmp -D_GLIBCXX_PARALLEL
 LIBS:=-L./util -lcktutil -lm -lz 
 CXX=g++
 .PHONY: all

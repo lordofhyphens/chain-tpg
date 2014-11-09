@@ -10,11 +10,20 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd mana
 struct chain_t
 {
   std::vector<BDD> data;
+  BDD last; // combined BDD of the last N minterms in the chain
   int size;
   chain_t() : size(0) {}
   inline void push_empty(const BDD& i) { data.push_back(i); }
   inline void push(const BDD& i) { data.push_back(i); size+=1; }
   inline void clear() {size = 0; data.clear(); }
+  bool operator==(const chain_t& other)
+  {
+    if (size != other.size) return false;
+    for (unsigned int i = 0; i < data.size(); i++) {
+      if (data[i] != other.data[i]) return false;
+    }
+    return true;
+  }
 };
 
 
@@ -29,4 +38,5 @@ bool isConstant(const std::pair<int, BDD>& f);
 
 BDD LeftShift(const Cudd& manager, const BDD& dd);
 BDD RightShift(const Cudd& manager, const BDD& dd);
+
 #endif // BDD_IMG_H

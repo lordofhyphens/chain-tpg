@@ -1,7 +1,11 @@
+// parallel operations are unsafe, because calling cudd's And function inside of a find_if
+#undef _GLIBCXX_PARALLEL
+
 #include "cudd_ckt.h"
 #include "bdd_img.h"
 #include "util/vectors.h"
 #include <algorithm>
+#include <deque>
 #include <parallel/algorithm>
 #include <cstring>
 #include "cudd.h"
@@ -9,6 +13,70 @@
 
 #include <random>
 #include <ctime>
+
+
+class joined_t
+{
+  public:
+    std::deque<int> shifts;
+    std::deque<chain_t> links;
+    int size;
+    int hops;
+    inline chain_t& front() { return links.front(); }
+    const inline chain_t& front() const { return links.front(); }
+    inline chain_t& back() { return links.back(); }
+    const inline chain_t& back() const { return links.back(); }
+    joined_t(chain_t initial) : size(initial.size), hops(initial.data.size())
+    { 
+      links.push_front(initial);
+      shifts.push_front(0);
+    }
+    joined_t() : size(0), hops(0) { }
+    joined_t(const joined_t& other)
+    {
+      shifts = std::deque<int>(other.shifts);
+      links = std::deque<chain_t>(other.links);
+      size = other.size;
+      hops = other.hops;
+    }
+    // put b behind a, with shifts
+    joined_t addBack(const joined_t& b, const int& shift) const
+    {
+      joined_t result = *this;
+      result.links.insert(result.links.end(), b.links.begin(), b.links.end());
+      result.shifts.push_back(shift);
+      if (b.shifts.size() > 1)
+        result.shifts.insert(result.shifts.end(), b.shifts.begin()+1, b.shifts.end());
+      return result;
+    }
+    // put a behind b, with shifts
+    joined_t addFront(const joined_t& b, const int& shift) const
+    {
+      joined_t result = b;
+      result.links.insert(result.links.end(), links.begin(), links.end());
+      result.shifts.push_back(shift);
+      if (shifts.size() > 1)
+        result.shifts.insert(result.shifts.end(), shifts.begin()+1, shifts.end());
+      return result;
+    }
+};
+
+
+struct isCompatible {
+  const std::vector<joined_t>::iterator T;
+  isCompatible(std::vector<joined_t>::iterator t) : T(t) {}
+  bool operator()(const joined_t& me) 
+  {
+    if (T->front() == me.front())
+      return false;
+    if (me.front().data.size() < 1)
+      return false;
+    assert(T->back().last.manager() != 0); // safety, should have a valid DD here
+    if (me.front().data.at(0).And(T->back().last).IsZero())
+      return true;
+    return false;
+  }
+};
 
 inline size_t random_0_to_n(size_t n) { srand(time(NULL)); return (rand() % n);  }
 
@@ -158,6 +226,7 @@ int main(int argc, const char* argv[])
     ckt.print();
   }
   ckt.form_bdds();
+  std::cerr << "Successfully formed BDDs for " << argv[1] << "\n";
 
   std::vector<BDD> results;
   std::map<DdNode*, BDD> chain_images; // for each BDD traveled, store its image.
@@ -186,6 +255,7 @@ int main(int argc, const char* argv[])
     next = possible.PickOneMinterm(ckt.dff_vars);
   }
   chain.push_empty(next);
+  allterm -= next;
   BDD visited = next;
 
   // Heuristic: pick a next-minterm randomly, add it to the chain.  Also add to
@@ -244,6 +314,7 @@ int main(int argc, const char* argv[])
               std::cerr << "Picking from another inital state."<<"\n"; 
             next = (possible-visited).PickOneMinterm(ckt.dff_vars);
             visited += next;
+            allterm -= next;
             chain.push_empty(next);
             continue;
           }
@@ -257,6 +328,7 @@ int main(int argc, const char* argv[])
         else 
         {
           next = next_img.PickOneMinterm(ckt.dff_vars);
+          allterm -= next;
         }
         if (chain_images.count(next.getNode()) > 0)
         {
@@ -267,6 +339,7 @@ int main(int argc, const char* argv[])
               std::cerr << "Exhausted next-states for this minterm\n";
             chain_images.erase(next.getNode());
             next = ckt.getManager().bddZero();
+            allterm -= next;
           }
         }
         else
@@ -277,6 +350,7 @@ int main(int argc, const char* argv[])
         }
       }
       while (next == ckt.getManager().bddZero());
+      allterm -= next;
       chain.push_empty(next);
     }
     else
@@ -299,7 +373,7 @@ int main(int argc, const char* argv[])
     if (verbose_flag)
       std::cerr << "chain_image: " << chain_images.size() << "\n";
   }
-  while ((chain_images.size() > 0 || possible.CountMinterm(ckt.dff.size()) > 0)&& next != ckt.getManager().bddOne());
+  while (allterm.CountMinterm(ckt.dff.size()) > (possible_count/3) &&  std::count_if(all_chains.begin(), all_chains.end(), isSingleton(0)) < (possible_count/3) && next != ckt.getManager().bddOne());
 
 
   // join chains procedure
@@ -307,16 +381,58 @@ int main(int argc, const char* argv[])
   // Shift the bdd j times and look for a state minterm in the beginning of every chain 
   // 
   //
-  size_t nodes_visited = 0, hops =0;
+
   std::vector<chain_t>::iterator p = std::remove_if(all_chains.begin(), all_chains.end(), isSingleton(0));
   all_chains.erase(p,all_chains.end());
+
+  const int LINK_SPOTS=2;
+  const int MAX_SHIFTS = (ckt.dff.size() / 2) + (ckt.dff.size() % 2 > 0);
+  std::vector<joined_t> linked_chains;
   for (std::vector<chain_t>::iterator it = all_chains.begin(); it != all_chains.end(); it++)
   {
-    nodes_visited += it->size;
-    hops += it->data.size();
+      linked_chains.push_back(*it);
   }
-    std::cout << argv[1] << ","<< pow(2,ckt.dff.size()) << "," << possible_count << "," << nodes_visited << "," << hops<< ","<< all_chains.size() << "\n";
 
+  std::vector<joined_t>::iterator start = linked_chains.begin();
+
+  // get an iterator to a point in the chain. 
+  // calculate its BDD for output
+  for (int shifts = 0; shifts <= MAX_SHIFTS; shifts++) {
+    while (start != linked_chains.end())
+    {
+      if (start->back().last == false)
+      {
+        start->back().last = ckt.getManager().bddZero();
+        for (int i = 1; i <= LINK_SPOTS; i++) 
+        {
+          start->back().last += *(start->back().data.end() - i);
+        }
+      }
+      // Shift last.
+      start->back().last = RightShift(ckt.getManager(), start->back().last);
+      // find the first BDD that isn't this one and has an initial node that is compatible
+      std::vector<joined_t>::iterator tgt = find_if(linked_chains.begin(), linked_chains.end(), isCompatible(start));
+      if (tgt != linked_chains.end())
+      {
+        *start = start->addBack(*tgt, shifts);
+        linked_chains.erase(tgt);
+      }
+      else
+      {
+        start++;
+        std::cerr << "No more compatible chains to this one.\n";
+      }
+      std::cerr << "Checking for next link.\n";
+    }
+  }
+  size_t nodes_visited = 0, hops = 0;
+
+  for (std::vector<joined_t>::iterator it = linked_chains.begin(); it != linked_chains.end(); it++)
+  {
+    nodes_visited += it->size;
+    hops += it->hops;
+  }
+    std::cout << argv[1] << ","<< pow(2,ckt.dff.size()) << "," << possible_count << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << all_chains.size() << "\n";
 
   return 0;
 }
