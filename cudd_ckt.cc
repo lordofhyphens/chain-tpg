@@ -32,6 +32,7 @@ DFF_DumpDot(
 } // vector<BDD>::DumpDot
 void CUDD_Circuit::form_bdds()
     {
+      _manager.AutodynEnable(CUDD_REORDER_SIFT);
       for (std::vector<NODEC>::iterator gate = graph->begin(); gate < graph->end(); gate++)
       {
         const int pos = gate - graph->begin();
@@ -125,5 +126,6 @@ void CUDD_Circuit::form_bdds()
       // Don't need the intermediate gate node BDDs, so clear them so 
       // garbage collection can happen.
       net.clear();
+      _manager.AutodynDisable();
     }
 

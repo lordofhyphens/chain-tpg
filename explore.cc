@@ -287,6 +287,7 @@ int main(int argc, const char* argv[])
           std::cerr << "Starting new chain\n";
 
           all_chains.push_back(chain);
+          std::cerr << "chains: " << all_chains.size() << "\n";
           chain.clear();
           possible -= visited;
           if (possible.CountMinterm(ckt.dff.size()) == 0)
@@ -423,6 +424,7 @@ int main(int argc, const char* argv[])
         std::cerr << "No more compatible chains to this one.\n";
       }
       std::cerr << "Checking for next link.\n";
+      std::cerr << "Chains: " << linked_chains.size() << "\n";
     }
   }
   size_t nodes_visited = 0, hops = 0;

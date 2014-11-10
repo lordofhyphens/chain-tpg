@@ -97,10 +97,12 @@ BDD LeftShift(const Cudd& manager, const BDD& dd)
       m = i;
     varlist[i] = i;
   }
-  std::cerr << m << "\n";
+  if (verbose_flag)
+    std::cerr << m << "\n";
   BDD remove = manager.bddVar(m);
   result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
-  result.PrintCover();
+  if (verbose_flag)
+    result.PrintCover();
   // build the permute list.
 
   // cofactor out this var to get it to dontcare
@@ -147,10 +149,12 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
       m = i;
     varlist[i] = i;
   }
-  std::cerr << m << "\n";
+  if (verbose_flag)
+    std::cerr << m << "\n";
   BDD remove = manager.bddVar(m);
   result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
-  result.PrintCover();
+  if (verbose_flag)
+    result.PrintCover();
   // build the permute list.
 
   // cofactor out this var to get it to dontcare
