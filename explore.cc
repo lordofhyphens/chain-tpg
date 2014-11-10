@@ -220,6 +220,8 @@ int main(int argc, char* const argv[])
 {
   CUDD_Circuit ckt;
   int arg;;
+  int single_chain = 0;
+  int nolink = 0;
   int option_index = 0;
 	extern int optind;
   srand(time(NULL));
@@ -236,6 +238,8 @@ int main(int argc, char* const argv[])
       {"verbose", no_argument,       &verbose_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
       {"export", no_argument, &do_export_flag, 1},
+      {"single", no_argument, &single_chain, 1},
+      {"nolink", no_argument, &nolink, 1},
       {"exportbdd", no_argument, &bdd_export_flag, 1},
       /* These options don't set a flag.
          We distinguish them by their indices. */
@@ -376,6 +380,7 @@ int main(int argc, char* const argv[])
 
           all_chains.push_back(chain);
           chain.clear();
+          if (single_chain) { next = ckt.getManager().bddOne(); continue; }
           possible -= visited;
           if (possible.CountMinterm(ckt.dff.size()) == 0)
           {
@@ -400,13 +405,18 @@ int main(int argc, char* const argv[])
           if ((item->second - visited).CountMinterm(ckt.dff.size()) == 0 || chain_images.size() == 0) {
             if (verbose_flag)
               std::cerr << "Picking from another inital state."<<"\n"; 
+            if (single_chain)
+            {
+              next = ckt.getManager().bddOne();
+              continue;
+            } 
             next = (possible-visited).PickOneMinterm(ckt.dff_vars);
             visited += next;
             allterm -= next;
             chain.push_empty(next);
             continue;
           }
-            
+
           next = (item->second - visited).PickOneMinterm(ckt.dff_vars);
           visited += next;
           if  ((item->second - visited).CountMinterm(ckt.dff.size()) == 1)
@@ -479,40 +489,43 @@ int main(int argc, char* const argv[])
   std::vector<joined_t> linked_chains;
   for (std::vector<chain_t>::iterator it = all_chains.begin(); it != all_chains.end(); it++)
   {
-      linked_chains.push_back(*it);
+    linked_chains.push_back(*it);
   }
 
-  std::vector<joined_t>::iterator start = linked_chains.begin();
+  if (!nolink) // optionally don't try to link chains with shifts.
+  {
+    std::vector<joined_t>::iterator start = linked_chains.begin();
 
-  // get an iterator to a point in the chain. 
-  // calculate its BDD for output
-  for (int shifts = 0; shifts <= MAX_SHIFTS; shifts++) {
-    while (start != linked_chains.end())
-    {
-      if (start->back().last == false)
+    // get an iterator to a point in the chain. 
+    // calculate its BDD for output
+    for (int shifts = 0; shifts <= MAX_SHIFTS; shifts++) {
+      while (start != linked_chains.end())
       {
-        start->back().last = ckt.getManager().bddZero();
-        for (int i = 1; i <= LINK_SPOTS; i++) 
+        if (start->back().last == false)
         {
-          start->back().last += *(start->back().data.end() - i);
+          start->back().last = ckt.getManager().bddZero();
+          for (int i = 1; i <= LINK_SPOTS; i++) 
+          {
+            start->back().last += *(start->back().data.end() - i);
+          }
         }
+        // Shift last.
+        start->back().last = RightShift(ckt.getManager(), start->back().last);
+        // find the first BDD that isn't this one and has an initial node that is compatible
+        std::vector<joined_t>::iterator tgt = find_if(linked_chains.begin(), linked_chains.end(), isCompatible(start));
+        if (tgt != linked_chains.end())
+        {
+          *start = start->addBack(*tgt, shifts);
+          linked_chains.erase(tgt);
+        }
+        else
+        {
+          start++;
+          std::cerr << "No more compatible chains to this one.\n";
+        }
+        std::cerr << "Checking for next link.\n";
+        std::cerr << "Chains: " << linked_chains.size() << "\n";
       }
-      // Shift last.
-      start->back().last = RightShift(ckt.getManager(), start->back().last);
-      // find the first BDD that isn't this one and has an initial node that is compatible
-      std::vector<joined_t>::iterator tgt = find_if(linked_chains.begin(), linked_chains.end(), isCompatible(start));
-      if (tgt != linked_chains.end())
-      {
-        *start = start->addBack(*tgt, shifts);
-        linked_chains.erase(tgt);
-      }
-      else
-      {
-        start++;
-        std::cerr << "No more compatible chains to this one.\n";
-      }
-      std::cerr << "Checking for next link.\n";
-      std::cerr << "Chains: " << linked_chains.size() << "\n";
     }
   }
   size_t nodes_visited = 0, hops = 0;
@@ -523,9 +536,8 @@ int main(int argc, char* const argv[])
     nodes_visited += it->size;
     hops += it->hops;
     total_shifts += it->shift();
-    std::clog << it->size << " - " << it->hops << " - " << it->shift() << "\n";
   }
-    std::cout << argv[1] << ","<< pow(2,ckt.dff.size()) << "," << possible_count << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << "," << total_shifts << "," << all_chains.size() << "\n";
+    std::cout << infile << ","<< pow(2,ckt.dff.size()) << "," << possible_count << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << "," << total_shifts << "," << all_chains.size() << "\n";
 
   return 0;
 }
