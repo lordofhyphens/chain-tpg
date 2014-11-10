@@ -10,6 +10,8 @@
 #include <cstring>
 #include "cudd.h"
 #include <limits>
+#include <fstream>
+#include <getopt.h>
 
 #include <random>
 #include <ctime>
@@ -22,6 +24,7 @@ class joined_t
     std::deque<chain_t> links;
     int size;
     int hops;
+    const inline int shift() const { return std::accumulate(shifts.begin(), shifts.end(), 0);}
     inline chain_t& front() { return links.front(); }
     const inline chain_t& front() const { return links.front(); }
     inline chain_t& back() { return links.back(); }
@@ -213,20 +216,105 @@ int sum_sizes(std::vector<std::pair<std::vector<BDD> ,int> >::const_iterator sta
   return sum;
 }
 
-int main(int argc, const char* argv[])
+int main(int argc, char* const argv[])
 {
   CUDD_Circuit ckt;
+  int arg;;
+  int option_index = 0;
+	extern int optind;
   srand(time(NULL));
+  int do_export_flag = 0;
+  int bdd_export_flag = 0;
   std::vector<std::map<unsigned int, bool> > inputs;
-  ckt.read_bench(argv[1]);
-  std::cerr << "Working on benchmark " << argv[1] << "\n";
+  std::string infile(argv[1]);
+  Cudd_Srandom(time(NULL));
+  while (1)
+  {
+    static struct option long_options[] =
+    {
+      /* These options set a flag. */
+      {"verbose", no_argument,       &verbose_flag, 1},
+      {"brief",   no_argument,       &verbose_flag, 0},
+      {"export", no_argument, &do_export_flag, 1},
+      {"exportbdd", no_argument, &bdd_export_flag, 1},
+      /* These options don't set a flag.
+         We distinguish them by their indices. */
+      {"help",     no_argument,       0, 'h'},
+      {"bench",     required_argument,       0, 'b'},
+      {0, 0}
+    };
+    /* getopt_long stores the option index here. */
+    arg = getopt_long (argc, argv, "b:s:",
+        long_options, &option_index);
+
+    /* Detect the end of the options. */
+    if (arg == -1)
+      break;
+
+    switch (arg)
+    {
+      case 0:
+        /* If this option set a flag, do nothing else now. */
+        if (long_options[option_index].flag != 0)
+          break;
+        printf ("option %s", long_options[option_index].name);
+        if (optarg)
+          printf (" with arg %s", optarg);
+        printf ("\n");
+        break;
+
+      case 'b':
+        infile = std::string(optarg);
+        break;
+      case 'h':
+        printf("Usage: %s (options) \n", argv[0]);
+        printf("\t--bench /path/to/ckt : A circuit to apply benchmarks.\n");
+        abort();
+      case '?':
+        /* getopt_long already printed an error message. */
+        break;
+
+      default:
+        abort ();
+    }
+  }
+  if (infile.empty()) 
+  {
+    std::cerr << "--bench argument is required.\n";
+    exit(1);
+  }
+  std::clog << "Loading circuit from file... ";
+  if (infile.find("level") != std::string::npos) {
+    std::clog << "presorted benchmark " << infile << " ";
+    ckt.load(infile.c_str());
+  } else {
+    std::clog << infile << "\n";
+    ckt.read_bench(infile.c_str());
+  }
   if (verbose_flag)
   {
     std::cerr << "Printing ckt.\n";
     ckt.print();
   }
+  if (do_export_flag)
+  {
+    std::stringstream temp;
+    temp << infile.c_str() << ".level";
+    std::cerr << "Writing levelized ckt to " << temp.str() << "\n";
+    ckt.save(temp.str().c_str());
+    exit(0);
+  }
+
   ckt.form_bdds();
-  std::cerr << "Successfully formed BDDs for " << argv[1] << "\n";
+  if (bdd_export_flag)
+  {
+    std::stringstream temp;
+    temp << infile.c_str() << ".bdd";
+    std::clog << "Writing BDDs for all BDDs." << "\n";
+    exit(0);
+  }
+
+  std::cerr << "Successfully formed BDDs for " << infile << "\n";
 
   std::vector<BDD> results;
   std::map<DdNode*, BDD> chain_images; // for each BDD traveled, store its image.
@@ -287,7 +375,6 @@ int main(int argc, const char* argv[])
           std::cerr << "Starting new chain\n";
 
           all_chains.push_back(chain);
-          std::cerr << "chains: " << all_chains.size() << "\n";
           chain.clear();
           possible -= visited;
           if (possible.CountMinterm(ckt.dff.size()) == 0)
@@ -374,7 +461,8 @@ int main(int argc, const char* argv[])
     if (verbose_flag)
       std::cerr << "chain_image: " << chain_images.size() << "\n";
   }
-  while (allterm.CountMinterm(ckt.dff.size()) > (possible_count/3) &&  std::count_if(all_chains.begin(), all_chains.end(), isSingleton(0)) < (possible_count/3) && next != ckt.getManager().bddOne());
+  //while (allterm.CountMinterm(ckt.dff.size()) > (possible_count/3) &&  std::count_if(all_chains.begin(), all_chains.end(), isSingleton(0)) < (possible_count/3) && next != ckt.getManager().bddOne());
+  while (next != ckt.getManager().bddOne()); // only using a single initial state
 
 
   // join chains procedure
@@ -386,7 +474,7 @@ int main(int argc, const char* argv[])
   std::vector<chain_t>::iterator p = std::remove_if(all_chains.begin(), all_chains.end(), isSingleton(0));
   all_chains.erase(p,all_chains.end());
 
-  const int LINK_SPOTS=2;
+  const int LINK_SPOTS=1;
   const int MAX_SHIFTS = (ckt.dff.size() / 2) + (ckt.dff.size() % 2 > 0);
   std::vector<joined_t> linked_chains;
   for (std::vector<chain_t>::iterator it = all_chains.begin(); it != all_chains.end(); it++)
@@ -429,12 +517,15 @@ int main(int argc, const char* argv[])
   }
   size_t nodes_visited = 0, hops = 0;
 
+  size_t total_shifts = 0;
   for (std::vector<joined_t>::iterator it = linked_chains.begin(); it != linked_chains.end(); it++)
   {
     nodes_visited += it->size;
     hops += it->hops;
+    total_shifts += it->shift();
+    std::clog << it->size << " - " << it->hops << " - " << it->shift() << "\n";
   }
-    std::cout << argv[1] << ","<< pow(2,ckt.dff.size()) << "," << possible_count << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << all_chains.size() << "\n";
+    std::cout << argv[1] << ","<< pow(2,ckt.dff.size()) << "," << possible_count << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << "," << total_shifts << "," << all_chains.size() << "\n";
 
   return 0;
 }
