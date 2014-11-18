@@ -185,4 +185,11 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
   return result;
 }
 
-
+BDD chain_t::pop()
+{ 
+    BDD temp = data.back();
+    data.pop_back();
+    if (std::find(data.begin(),data.end(), temp) == data.end())
+      size -= 1;
+    return temp;
+  }

@@ -11,10 +11,15 @@ struct chain_t
 {
   std::vector<BDD> data;
   BDD last; // combined BDD of the last N minterms in the chain
+  BDD back() const { return data.back(); }
+  BDD back() { return data.back(); }
   int size;
   chain_t() : size(0) {}
   inline void push_empty(const BDD& i) { data.push_back(i); }
   inline void push(const BDD& i) { data.push_back(i); size+=1; }
+  BDD pop();
+
+  
   inline void clear() {size = 0; data.clear(); }
   bool operator==(const chain_t& other)
   {
