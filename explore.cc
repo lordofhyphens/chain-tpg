@@ -16,7 +16,8 @@
 #include <random>
 #include <ctime>
 
-
+float elapsed(const timespec start);
+const float MAX_TIME = 60000;
 class joined_t
 {
   public:
@@ -219,9 +220,11 @@ int sum_sizes(std::vector<std::pair<std::vector<BDD> ,int> >::const_iterator sta
 int main(int argc, char* const argv[])
 {
   CUDD_Circuit ckt;
+  timespec start;
   int arg;;
   int single_chain = 0;
   int nolink = 0;
+  float taken_time = 0;
   int option_index = 0;
 	extern int optind;
   srand(time(NULL));
@@ -319,6 +322,8 @@ int main(int argc, char* const argv[])
   }
 
   std::cerr << "Successfully formed BDDs for " << infile << "\n";
+  // begin the search
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 
   std::vector<BDD> results;
   std::map<DdNode*, BDD> chain_images; // for each BDD traveled, store its image.
@@ -330,7 +335,6 @@ int main(int argc, char* const argv[])
     std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
-  
 
   BDD allterm = possible;
   long int possible_count = possible.CountMinterm(ckt.dff.size());
@@ -470,11 +474,20 @@ int main(int argc, char* const argv[])
       std::cerr << "Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
     if (verbose_flag)
       std::cerr << "chain_image: " << chain_images.size() << "\n";
+  taken_time = elapsed(start);
   }
   //while (allterm.CountMinterm(ckt.dff.size()) > (possible_count/3) &&  std::count_if(all_chains.begin(), all_chains.end(), isSingleton(0)) < (possible_count/3) && next != ckt.getManager().bddOne());
-  while (next != ckt.getManager().bddOne()); // only using a single initial state
+  while (next != ckt.getManager().bddOne() && taken_time < MAX_TIME ); // only using a single initial state
+  if (taken_time >= MAX_TIME) {
+    std::cerr << "Aborting due to too much time, " << taken_time << "ms"<< "\n";
+    all_chains.push_back(chain);
+  }
+  else 
+    std::cerr << "Took " << taken_time << "ms to form chains.\n";
 
+  float link_time;
 
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
   // join chains procedure
   // for each chain, create a BDD of the last N states.
   // Shift the bdd j times and look for a state minterm in the beginning of every chain 
@@ -528,6 +541,8 @@ int main(int argc, char* const argv[])
       }
     }
   }
+  link_time = elapsed(start);
+  std::cerr << "Linking took " << link_time << "ms.\n";
   size_t nodes_visited = 0, hops = 0;
 
   size_t total_shifts = 0;
