@@ -1,9 +1,14 @@
 // parallel operations are unsafe, because calling cudd's And function inside of a find_if
 #undef _GLIBCXX_PARALLEL
-
 #include "cudd_ckt.h"
 #include "bdd_img.h"
+
+#ifndef CPU
+  #define CPU
+#endif 
+
 #include "util/vectors.h"
+#include "util/utility.h"
 #include <algorithm>
 #include <deque>
 #include <parallel/algorithm>
@@ -16,8 +21,7 @@
 #include <random>
 #include <ctime>
 
-float elapsed(const timespec start);
-float MAX_TIME = 60000;
+const float MAX_TIME = 3600000; // in ms 
 class joined_t
 {
   public:
@@ -384,24 +388,79 @@ int main(int argc, char* const argv[])
         if (next_img.CountMinterm(ckt.dff.size()) == 0) 
         {
           // set this chain to "best" if 
-          if (verbose_flag)
-            std::cerr << "Rewinding stack.\n";
           if (chain.size > best_chain.size)
           {
             best_chain = chain;
           }
-          
+
           avoid += next;
-          visited += next;
+          visited -= next;
+
           if (backtrack > max_backtrack)
           { 
-            // we're done here
-            next = ckt.getManager().bddOne();
+            backtrack = 0;
+            // end the chain?
+            if (verbose_flag)
+              std::cerr << "Starting new chain\n";
+
+            all_chains.push_back(best_chain);
+            best_chain.clear();
+            chain.clear();
+
+            if (single_chain) { next = ckt.getManager().bddOne(); continue; }
+            possible -= visited;
+            if (possible.CountMinterm(ckt.dff.size()) == 0)
+            {
+              if (verbose_flag)
+                std::cerr << "Nothing left in possible, abort." << "\n";
+              next = ckt.getManager().bddOne();
+              continue;
+            }
+            std::map<DdNode*, BDD>::iterator item = chain_images.begin();
+            std::pair<DdNode*, BDD> temp = *item;
+
+            while (chain_images.count(temp.first) == 0 && chain_images.size() > 0)
+            {
+              item = chain_images.begin();
+              std::advance(item, random_0_to_n(chain_images.size()) );
+              temp = *item;
+              if ((temp.second - visited).CountMinterm(ckt.dff.size()) == 0)
+                chain_images.erase(temp.first);
+            }
+            if (verbose_flag)
+              std::cerr << "Found a non-empty image. " <<(item->second - visited).CountMinterm(ckt.dff.size()) << "minterms." << "\n";
+            if ((item->second - visited).CountMinterm(ckt.dff.size()) == 0 || chain_images.size() == 0) {
+              if (verbose_flag)
+                std::cerr << "Picking from another inital state."<<"\n"; 
+              if (single_chain)
+              {
+                next = ckt.getManager().bddOne();
+                continue;
+              } 
+              next = (possible-visited).PickOneMinterm(ckt.dff_vars);
+              visited += next;
+              allterm -= next;
+              chain.push_empty(next);
+              continue;
+            }
+
+            next = (item->second - visited).PickOneMinterm(ckt.dff_vars);
+            visited += next;
+            if  ((item->second - visited).CountMinterm(ckt.dff.size()) == 1)
+              chain_images.erase(next.getNode());
+            continue;
           }
-            
-          next = chain.back();
-          backtrack++;
-          continue;
+          else
+          {
+            next = chain.back();
+            backtrack++;
+
+            if (verbose_flag)
+              std::cerr << "Rewinding stack.\n";
+            continue;
+          }
+
+
         }
         else 
         {
