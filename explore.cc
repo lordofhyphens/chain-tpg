@@ -347,18 +347,19 @@ int main(int argc, char* const argv[])
     std::cerr << "Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
 
   BDD next; 
+
   BDD avoid = ckt.getManager().bddZero();
-  if ((ckt.getManager().bddOne() - possible).CountMinterm(ckt.dff.size()) > 0)
-  {
-    next = (ckt.getManager().bddOne() - possible).PickOneMinterm(ckt.dff_vars);
-  }
-  else
-  {
-    next = possible.PickOneMinterm(ckt.dff_vars);
-  }
+  next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
+
   chain.push_empty(next);
   allterm -= next;
   BDD visited = next;
+  while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 ) 
+  { 
+    std::cerr << "State has no next-states!" << "\n";
+    visited += next;
+    next = (ckt.getManager().bddOne() - visited).PickOneMinterm(ckt.dff_vars);
+  }
   int backtrack = 0;
   int max_backtrack = 10;
 
@@ -387,6 +388,8 @@ int main(int argc, char* const argv[])
       {
         if (next_img.CountMinterm(ckt.dff.size()) == 0) 
         {
+          if (verbose_flag)
+            std::cerr << "No minterms in image." << "\n";
           // set this chain to "best" if 
           if (chain.size > best_chain.size)
           {
@@ -459,8 +462,6 @@ int main(int argc, char* const argv[])
               std::cerr << "Rewinding stack.\n";
             continue;
           }
-
-
         }
         else 
         {
