@@ -13,6 +13,7 @@
 #include <deque>
 #include <parallel/algorithm>
 #include <cstring>
+#include <string>
 #include "cudd.h"
 #include <limits>
 #include <fstream>
@@ -21,7 +22,7 @@
 #include <random>
 #include <ctime>
 
-const float MAX_TIME = 3600000; // in ms 
+float MAX_TIME = 3600000; // in ms 
 class joined_t
 {
   public:
@@ -239,6 +240,8 @@ int main(int argc, char* const argv[])
   Cudd_Srandom(time(NULL));
   while (1)
   {
+    std::string max_time_str;
+    std::string::size_type sz;     // alias of size_t
     static struct option long_options[] =
     {
       /* These options set a flag. */
@@ -252,6 +255,7 @@ int main(int argc, char* const argv[])
          We distinguish them by their indices. */
       {"help",     no_argument,       0, 'h'},
       {"bench",     required_argument,       0, 'b'},
+      {"time",     required_argument,       0, 't'},
       {0, 0}
     };
     /* getopt_long stores the option index here. */
@@ -281,6 +285,11 @@ int main(int argc, char* const argv[])
         printf("Usage: %s (options) \n", argv[0]);
         printf("\t--bench /path/to/ckt : A circuit to apply benchmarks.\n");
         abort();
+        break;
+      case 't':
+        max_time_str = std::string(optarg);
+        MAX_TIME = std::stof(max_time_str,&sz);
+        break;
       case '?':
         /* getopt_long already printed an error message. */
         break;
@@ -350,15 +359,18 @@ int main(int argc, char* const argv[])
 
   BDD avoid = ckt.getManager().bddZero();
   next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
+  unsigned int all_backtracks = 0;
 
   chain.push_empty(next);
   allterm -= next;
   BDD visited = next;
+  BDD deadends = ckt.getManager().bddZero();
+  next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
   while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
     std::cerr << "State has no next-states!" << "\n";
-    visited += next;
-    next = (ckt.getManager().bddOne() - visited).PickOneMinterm(ckt.dff_vars);
+    deadends += next;
+    next = (ckt.getManager().bddOne() - deadends).PickOneMinterm(ckt.dff_vars);
   }
   int backtrack = 0;
   int max_backtrack = 10;
@@ -376,6 +388,7 @@ int main(int argc, char* const argv[])
   {
     BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
     next_img -= avoid;
+    next_img -= deadends;
     if  ((next_img- visited).CountMinterm(ckt.dff.size()) == 1)
       chain_images.erase(next.getNode());
     if ( (next_img - visited).CountMinterm(ckt.dff.size()) == 0)
@@ -386,6 +399,7 @@ int main(int argc, char* const argv[])
       // pick a next state that we can get somewhere else 
       do
       {
+        taken_time = elapsed(start);
         if (next_img.CountMinterm(ckt.dff.size()) == 0) 
         {
           if (verbose_flag)
@@ -402,6 +416,7 @@ int main(int argc, char* const argv[])
           if (backtrack > max_backtrack)
           { 
             backtrack = 0;
+            avoid = ckt.getManager().bddZero();
             // end the chain?
             if (verbose_flag)
               std::cerr << "Starting new chain\n";
@@ -467,6 +482,7 @@ int main(int argc, char* const argv[])
         {
           next = next_img.PickOneMinterm(ckt.dff_vars);
           allterm -= next;
+          all_backtracks++;
           backtrack = (backtrack > 0 ? backtrack -1 : 0);
         }
         if (chain_images.count(next.getNode()) > 0)
@@ -488,7 +504,7 @@ int main(int argc, char* const argv[])
           next = ckt.getManager().bddZero();
         }
       }
-      while (next == ckt.getManager().bddZero());
+      while (next == ckt.getManager().bddZero() && taken_time < MAX_TIME );
       allterm -= next;
       chain.push_empty(next);
     }
@@ -596,7 +612,7 @@ int main(int argc, char* const argv[])
     hops += it->hops;
     total_shifts += it->shift();
   }
-    std::cout << infile << ","<< pow(2,ckt.dff.size()) << "," << possible_count << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << "," << total_shifts << "," << all_chains.size() << "\n";
+    std::cout << infile << ","<< pow(2,ckt.dff.size()) << "," << taken_time << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << "," << total_shifts << "," << all_chains.size() << "," << all_backtracks << "\n";
 
   return 0;
 }
