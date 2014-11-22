@@ -228,6 +228,7 @@ int main(int argc, char* const argv[])
   timespec start;
   int arg;;
   int single_chain = 0;
+  int partition_flag = 0;
   int nolink = 0;
   float taken_time = 0;
   int option_index = 0;
@@ -246,6 +247,7 @@ int main(int argc, char* const argv[])
     {
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
+      {"partition", no_argument,       &partition_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
       {"export", no_argument, &do_export_flag, 1},
       {"single", no_argument, &single_chain, 1},
@@ -366,6 +368,28 @@ int main(int argc, char* const argv[])
   BDD visited = next;
   BDD deadends = ckt.getManager().bddZero();
   next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
+  if (partition_flag)
+  {
+    BDD live = ckt.getManager().bddZero();
+    while ( (ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0 ) 
+    { 
+      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 )
+      {
+        if (verbose_flag)
+          std::cerr << "State has no next-states!" << "\n";
+        deadends += next;
+      } 
+      else 
+      {
+        if (verbose_flag)
+          std::cerr << "State has next-states." << "\n";
+        live += next;
+      }
+      next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
+    }
+    std::cout << "Deadend states: " << deadends.CountMinterm(ckt.dff.size()) << ", " << " Other states: " << live.CountMinterm(ckt.dff.size()) << "\n";
+    exit(0);
+  }
   while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
     std::cerr << "State has no next-states!" << "\n";
