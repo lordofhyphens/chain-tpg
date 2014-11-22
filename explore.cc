@@ -91,26 +91,6 @@ inline size_t random_0_to_n(size_t n) { srand(time(NULL)); return (rand() % n); 
 
 int verbose_flag = 0;
 
-// Traverse a BDD for a single function and minterm 
-bool eval_minterm(const Cudd& mgr, const BDD& bdd, const std::map<unsigned int,bool> vars)
-{
-  // get a copy of the DD node and manager.
-  DdNode* func = bdd.getNode();
-  DdManager* manager = mgr.getManager();
-  // get the var from the index here.
-  // if constant, check to see if complemented. If complemented, return 0, else 1.
-  // if vars[var], then func = Cudd_T(func), else Cudd_E(func);
-  while (!Cudd_IsConstant(func)) 
-  {
-    const int var = Cudd_ReadInvPerm(manager, func->index);
-    if (vars.at(var))
-      func = Cudd_T(func);
-    else
-      func = Cudd_E(Cudd_Regular(func));
-  }
-  return !Cudd_IsComplement(func);
-}
-
 // retrieves one fully-specified minterm in the onset of root.
 BDD traverse_single(Cudd manager, BDD root, int i, int nvars) 
 {
@@ -128,7 +108,10 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
   // rewrite: first, figure out the actual path counts. If currently
   // complemented, ignore any uncomplemented edges that go to a constant node.
   // if currently uncomplemented, ignore any complemented edges that go to a constant node.
-
+  if (Cudd_IsConstant(var) != 1)
+  {
+ 
+  }
   while(Cudd_IsConstant(var) != 1) 
   {
     std::cerr << "paths to non-zero: " << Cudd_CountPathsToNonZero(var) << " = " 
@@ -209,6 +192,52 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
   return minterm;
 }
 
+BDD simulate(CUDD_Circuit& ckt, BDD curr_state) 
+{
+  // Make a BDD by evaluating every next-state function with curr_state and every combination of the inputs
+  assert(curr_state.CountMinterm(ckt.dff.size()) == 1); // only valid for a single current-state bdd
+
+  BDD result_minterm = ckt.getManager().bddZero();
+  // iterate over every combination
+  BDD used_inputs = ckt.getManager().bddZero();
+  if (verbose_flag)
+  std::cerr << "pis: " << ckt.pi_vars.size() << "\n";
+  for (int i  = 0; i < ckt.getManager().bddOne().CountMinterm(ckt.pi_vars.size()); i++)
+  {
+    BDD minterm = ckt.getManager().bddOne(); // form a minterm for this combination from all inputs
+    BDD input_terms = (ckt.getManager().bddOne() - used_inputs).PickOneMinterm(ckt.pi_vars);
+    used_inputs += input_terms;
+    BDD cs = curr_state * input_terms;
+    DdNode* cs_node = cs.getNode();
+    int* cs_input = new int[255];
+    for (int k = 0; k < 255; k++)
+      cs_input[k] = 3;
+
+    Cudd_BddToCubeArray(ckt.getManager().getManager(), cs_node, cs_input);
+    if (verbose_flag)
+    {
+      for (int k = 0; k < 10; k++)
+      {
+        if (cs_input[k] < 3)
+          std::cerr << cs_input[k];
+      }
+      std::cerr <<"\n";
+    }
+    for (std::map<int,BDD>::iterator dff = ckt.dff.begin(); dff != ckt.dff.end(); dff++)
+    {
+      BDD thisvar = ckt.getManager().bddVar(ckt.dff_pair[dff->first]);
+      if (dff->second.Eval(cs_input) == ckt.getManager().bddOne())
+        minterm *= thisvar;
+      else 
+        minterm *= !thisvar;
+    }
+    delete cs_input;
+    result_minterm += minterm;
+  }
+  return result_minterm;
+}
+
+
 
 struct SizeCompare {
   bool operator() (std::pair<std::vector<BDD>, int> i, std::pair<std::vector<BDD>, int> j) { return i.second < j.second;}
@@ -229,6 +258,7 @@ int main(int argc, char* const argv[])
   int arg;;
   int single_chain = 0;
   int partition_flag = 0;
+  int simulate_flag = 0;
   int nolink = 0;
   float taken_time = 0;
   int option_index = 0;
@@ -248,6 +278,7 @@ int main(int argc, char* const argv[])
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
       {"partition", no_argument,       &partition_flag, 1},
+      {"simulate", no_argument,       &simulate_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
       {"export", no_argument, &do_export_flag, 1},
       {"single", no_argument, &single_chain, 1},
@@ -350,6 +381,7 @@ int main(int argc, char* const argv[])
   if (verbose_flag)
     std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
 
+
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
 
   BDD allterm = possible;
@@ -371,23 +403,64 @@ int main(int argc, char* const argv[])
   if (partition_flag)
   {
     BDD live = ckt.getManager().bddZero();
+    unsigned long int dead = 0, other = 0;
     while ( (ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0 ) 
     { 
       if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 )
       {
+        deadends += next;
+        dead++;
         if (verbose_flag)
-          std::cerr << "State has no next-states!" << "\n";
+          std::cerr << "State has no next-states, " << dead << ", " << other << "\n";
+      } 
+      else 
+      {
+        live += next;
+        other++;
+        if (verbose_flag)
+          std::cerr << "State has next-states, " << dead << ", " << other << "\n";
+      }
+      if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
+        next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
+    }
+    std::cout << "Deadend states: " << deadends.CountMinterm(ckt.dff.size()) << ", " << " Other states: " << live.CountMinterm(ckt.dff.size()) << "\n";
+    exit(0);
+  }
+  if (simulate_flag)
+  {
+    BDD live = ckt.getManager().bddZero();
+    BDD deadends = ckt.getManager().bddZero();
+    while ( (ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0 ) 
+    { 
+
+      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 )
+      {
+        // confirm that this indeed only has itself (or nothing) as a next-state
+        BDD sim_results = simulate(ckt, next);
+        if (sim_results == next)
+        {
+          std::cerr << "Loops back to itself only." << "\n";
+        }
+        else if(sim_results == ckt.getManager().bddZero())
+        {
+          //std::cerr << "Deadend." << "\n";
+        } 
+        else
+        {
+          std::cout << "Current state: \n" ;
+          next.PrintCover();
+          std::cout << "results: \n";
+          sim_results.PrintCover();
+        }
         deadends += next;
       } 
       else 
       {
-        if (verbose_flag)
-          std::cerr << "State has next-states." << "\n";
         live += next;
       }
-      next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
+      if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
+        next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
     }
-    std::cout << "Deadend states: " << deadends.CountMinterm(ckt.dff.size()) << ", " << " Other states: " << live.CountMinterm(ckt.dff.size()) << "\n";
     exit(0);
   }
   while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 ) 
