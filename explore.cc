@@ -612,7 +612,7 @@ int main(int argc, char* const argv[])
     hops += it->hops;
     total_shifts += it->shift();
   }
-    std::cout << infile << ","<< pow(2,ckt.dff.size()) << "," << taken_time << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << "," << total_shifts << "," << all_chains.size() << "," << all_backtracks << "\n";
+    std::cout << infile << ","<< pow(2,ckt.dff.size()) << "," << taken_time << "," << link_time << "," << nodes_visited << "," << hops<< ","<< linked_chains.size() << "," << total_shifts << "," << all_chains.size() << "," << all_backtracks << "\n";
 
   return 0;
 }
