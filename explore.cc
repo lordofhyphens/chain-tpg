@@ -369,7 +369,7 @@ int main(int argc, char* const argv[])
 
   std::cerr << "Successfully formed BDDs for " << infile << "\n";
   // begin the search
-	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+	clock_gettime(CLOCK_REALTIME, &start);
 
   std::vector<BDD> results;
   std::map<DdNode*, BDD> chain_images; // for each BDD traveled, store its image.
@@ -644,7 +644,7 @@ int main(int argc, char* const argv[])
 
   float link_time;
 
-	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+	clock_gettime(CLOCK_REALTIME, &start);
   // join chains procedure
   // for each chain, create a BDD of the last N states.
   // Shift the bdd j times and look for a state minterm in the beginning of every chain 
