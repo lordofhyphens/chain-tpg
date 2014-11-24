@@ -188,7 +188,9 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
 
   minterm.PrintCover();
   manager.SetStdout(stdout);
+  manager.AutodynEnable(CUDD_REORDER_SAME);
   return minterm;
+
 }
 
 BDD simulate(CUDD_Circuit& ckt, BDD curr_state) 
@@ -270,6 +272,7 @@ int main(int argc, char* const argv[])
   std::string infile(argv[1]);
   Cudd_Srandom(time(NULL));
   std::map<BDD_map_pair, BDD> cache;
+  ckt.getManager().AutodynEnable(CUDD_REORDER_SIFT);
   while (1)
   {
     std::string max_time_str;

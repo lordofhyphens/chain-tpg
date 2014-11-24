@@ -3,8 +3,31 @@
 #include "cuddObj.hh"
 
 extern int verbose_flag;
+BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
+BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager,std::map<BDD_map_pair, BDD>& cache, const int split = 0);
 
+
+BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager, std::map<BDD_map_pair, BDD>& cache,const int split)
+{
+  BDD result;
+  manager.AutodynDisable();
+  result = _img(f, mapping, C, manager, cache, split);
+  cache.clear();
+  manager.AutodynEnable(CUDD_REORDER_SAME);
+  return result;
+
+}
 BDD img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split)
+{
+  BDD result;
+
+  manager.AutodynDisable(); // Disable variable reordering while 
+  result = _img(f, mapping, manager, cache, split);
+  cache.clear();
+  manager.AutodynEnable(CUDD_REORDER_SAME);
+  return result;
+}
+BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split)
 {
   // mapping is needed to match output functions to input variables when generating
   // next-state.
@@ -50,7 +73,7 @@ BDD img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_
       it->second = it->second.Cofactor(~p);
     }
    if (cache.count(BDD_map_pair(v,vn)) == 0) // try to cache previously-found results
-     cache[BDD_map_pair(v,vn)] = img(v, mapping, manager, cache, split+1) + img(vn, mapping, manager, cache, split+1);
+     cache[BDD_map_pair(v,vn)] = _img(v, mapping, manager, cache, split+1) + _img(vn, mapping, manager, cache, split+1);
    else
      if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
    return cache[BDD_map_pair(v,vn)];
@@ -68,7 +91,7 @@ BDD img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_
 // at every level of recursion, see if one of the arguments is constant. if it
 // is, compute the minterm for that and return it.
 //
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager, std::map<BDD_map_pair, BDD>& cache,const int split)
+BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager, std::map<BDD_map_pair, BDD>& cache,const int split)
 {
 
   std::map<int, BDD> v = f;
@@ -76,7 +99,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd mana
   {
     it->second = it->second.Constrain(C);
   }
-  return img(v, mapping, manager, cache);
+  return _img(v, mapping, manager, cache);
 
 }
 bool isConstant(const std::pair<int, BDD>& f) {

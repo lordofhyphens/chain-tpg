@@ -8,7 +8,7 @@ DFF_DumpDot(
   CUDD_Circuit ckt,
   FILE * fp = stdout) 
 {
-    std::cerr << "Dumping to Dot\n";
+    std::cerr << __FILE__ << ": " <<"Dumping to Dot\n";
     DdManager *mgr = ckt.getManager().getManager();
     int n = nodes.size();
     DdNode **F = new DdNode *[n];
@@ -18,7 +18,7 @@ DFF_DumpDot(
       inames[std::distance(ckt.pi.begin(),i)] = new char[ckt.at(i->first).name.size()];
       strcpy(inames[std::distance(ckt.pi.begin(),i)],ckt.at(i->first).name.c_str());
     }
-    std::cerr << "wrote pi name list\n";
+    std::cerr << __FILE__ << ": " <<"wrote pi name list\n";
     for (std::map<int, BDD>::const_iterator i = nodes.begin(); i != nodes.end(); i++) {
       F[std::distance(nodes.begin(),i)] = i->second.getNode();
       onames[std::distance(nodes.begin(),i)] = new char[ckt.at(i->first).name.size()];
@@ -38,7 +38,7 @@ void CUDD_Circuit::form_bdds()
         const int pos = gate - graph->begin();
         BDD result;
         if (verbose_flag)
-          std::cerr << "Working on gate " << pos << ", " << gate->name<< "\n";
+          std::cerr << __FILE__ << ": " <<"Working on gate " << pos << ", " << gate->name<< "\n";
         switch(gate->typ)
         {
           case DFF:
@@ -65,13 +65,13 @@ void CUDD_Circuit::form_bdds()
           default:
             fin_t::iterator fin = gate->fin.begin();
             if (verbose_flag)
-              std::cerr << "\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
+              std::cerr << __FILE__ << ": " <<"\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
             result = net[fin->second];
             fin++;
             // Make the BDD from the fanins.
             for (; fin < gate->fin.end(); fin++) {
               if (verbose_flag)
-                std::cerr << "\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
+                std::cerr << __FILE__ << ": " <<"\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
               switch(gate->typ)
               {
                 case NAND:
@@ -105,17 +105,17 @@ void CUDD_Circuit::form_bdds()
         if (gate->typ == DFF_IN) {
           dff[pos] = result;
           if (verbose_flag)
-            std::cerr << "looking for matching var for " << gate->name << ", " << gate->name.substr(0,gate->name.size()-3).c_str() << "\n";
+            std::cerr << __FILE__ << ": " <<"looking for matching var for " << gate->name << ", " << gate->name.substr(0,gate->name.size()-3).c_str() << "\n";
           std::string tgt = gate->name.substr(0,gate->name.size()-3);
           for (std::vector<NODEC>::iterator gtmp = graph->begin(); gtmp < graph->end(); gtmp++)
           {
             if (verbose_flag)
-              std::cerr << "Checking " << gtmp->name << ", " << tgt << "\n";
+              std::cerr << __FILE__ << ": " <<"Checking " << gtmp->name << ", " << tgt << "\n";
             if (gtmp->name.find(tgt.c_str(),0,tgt.size()) != std::string::npos)
             {
               dff_pair[pos] = gtmp - graph->begin();
               if (verbose_flag)
-                std::cerr << "found " << gtmp->name << " at pos " << gtmp-graph->begin()<<"\n";
+                std::cerr << __FILE__ << ": " <<"found " << gtmp->name << " at pos " << gtmp-graph->begin()<<"\n";
               break;
             }
           }
