@@ -11,7 +11,6 @@
 #include "util/utility.h"
 #include <algorithm>
 #include <deque>
-#include <parallel/algorithm>
 #include <cstring>
 #include <string>
 #include "cudd.h"
@@ -290,7 +289,7 @@ int main(int argc, char* const argv[])
         break;
       case 't':
         max_time_str = std::string(optarg);
-        MAX_TIME = std::stof(max_time_str,&sz);
+        MAX_TIME = atof(max_time_str.c_str());
         break;
       case '?':
         /* getopt_long already printed an error message. */
