@@ -391,7 +391,6 @@ int main(int argc, char* const argv[])
 
 
   BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager(), cache);
-  cache.clear();
 
   BDD allterm = possible;
   long int possible_count = possible.CountMinterm(ckt.dff.size());
@@ -429,10 +428,8 @@ int main(int argc, char* const argv[])
         if (verbose_flag)
           std::cerr << __FILE__ << ": " <<"State has next-states, " << dead << ", " << other << "\n";
       }
-      cache.clear();
       if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
         next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
-      cache.clear();
     }
     std::cout << "Deadend states: " << deadends.CountMinterm(ckt.dff.size()) << ", " << " Other states: " << live.CountMinterm(ckt.dff.size()) << "\n";
     exit(0);
@@ -469,7 +466,6 @@ int main(int argc, char* const argv[])
       {
         live += next;
       }
-      cache.clear();
       if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
         next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
     }
@@ -477,7 +473,6 @@ int main(int argc, char* const argv[])
   }
   while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
-    cache.clear();
     std::cerr << __FILE__ << ": " <<"State has no next-states!" << "\n";
     deadends += next;
     next = (ckt.getManager().bddOne() - deadends).PickOneMinterm(ckt.dff_vars);
@@ -497,7 +492,6 @@ int main(int argc, char* const argv[])
   do
   {
     BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
-    cache.clear();
     next_img -= avoid;
     next_img -= deadends;
     if  ((next_img- visited).CountMinterm(ckt.dff.size()) == 1)

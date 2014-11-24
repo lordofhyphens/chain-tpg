@@ -12,7 +12,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cu
   BDD result;
   manager.AutodynDisable();
   result = _img(f, mapping, C, manager, cache, split);
-  cache.clear();
+//  cache.clear();
   manager.AutodynEnable(CUDD_REORDER_SAME);
   return result;
 
@@ -23,7 +23,7 @@ BDD img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_
 
   manager.AutodynDisable(); // Disable variable reordering while 
   result = _img(f, mapping, manager, cache, split);
-  cache.clear();
+//  cache.clear();
   manager.AutodynEnable(CUDD_REORDER_SAME);
   return result;
 }
@@ -35,6 +35,8 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
   // if there are, we have a terminal case
   if (__gnu_parallel::count_if(f.begin(), f.end(), isConstant) > 0) 
   {
+    if (verbose_flag) 
+      std::cerr << __FILE__ << ":" << "Terminal case." << "\n";
     BDD constant_terms = manager.bddOne(), pos = manager.bddOne();
     for (std::map<int, BDD>::const_iterator it = f.begin(); it != f.end(); it++) {
       if (isConstant(*it))
@@ -63,20 +65,30 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
    if (verbose_flag) 
      std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(split) << "\n";
    BDD p = manager.ReadVars(split);
-    // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
-    for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
-    {
-      it->second = it->second.Cofactor(p);
-    }
+   if (cache.count(BDD_map_pair(f,p)) == 0)
+   {
+     // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
+     for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
+     {
+       it->second = it->second.Cofactor(p);
+     }
+
+     cache[BDD_map_pair(f,p)] = _img(v, mapping, manager, cache, split+1);
+   }
+   else
+     if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
+   // try to cache previously-found results
+   if (cache.count(BDD_map_pair(f,~p)) == 0)
+   {
     for (std::map<int, BDD>::iterator it = vn.begin(); it != vn.end(); it++) 
     {
       it->second = it->second.Cofactor(~p);
     }
-   if (cache.count(BDD_map_pair(v,vn)) == 0) // try to cache previously-found results
-     cache[BDD_map_pair(v,vn)] = _img(v, mapping, manager, cache, split+1) + _img(vn, mapping, manager, cache, split+1);
+     cache[BDD_map_pair(f,~p)] = _img(vn, mapping, manager, cache, split+1);
+   }
    else
      if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
-   return cache[BDD_map_pair(v,vn)];
+   return cache[BDD_map_pair(f,p)] + cache[BDD_map_pair(f,~p)];
   }
 }
 // Expansion via input splitting The image of F w/r/t is the union of the image
