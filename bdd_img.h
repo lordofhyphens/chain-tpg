@@ -5,8 +5,11 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, const int split = 0);
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager, const int split = 0);
+typedef std::map<int, BDD> BDD_map;
+typedef std::pair<BDD_map, BDD_map> BDD_map_pair;
+
+BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
+BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager,std::map<BDD_map_pair, BDD>& cache, const int split = 0);
 struct chain_t
 {
   std::vector<BDD> data;

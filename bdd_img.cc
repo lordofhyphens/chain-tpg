@@ -3,7 +3,8 @@
 #include "cuddObj.hh"
 
 extern int verbose_flag;
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, const int split)
+
+BDD img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split)
 {
   // mapping is needed to match output functions to input variables when generating
   // next-state.
@@ -37,7 +38,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
    std::map<int, BDD> v = f;
    std::map<int, BDD> vn = f;
    if (verbose_flag) 
-     std::cerr << "Splitting on var x" << manager.ReadPerm(split) << "\n";
+     std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(split) << "\n";
    BDD p = manager.ReadVars(split);
     // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
     for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
@@ -48,8 +49,11 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
     {
       it->second = it->second.Cofactor(~p);
     }
-
-   return img(v, mapping, manager, split+1) + img(vn, mapping, manager, split+1);
+   if (cache.count(BDD_map_pair(v,vn)) == 0) // try to cache previously-found results
+     cache[BDD_map_pair(v,vn)] = img(v, mapping, manager, cache, split+1) + img(vn, mapping, manager, cache, split+1);
+   else
+     if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
+   return cache[BDD_map_pair(v,vn)];
   }
 }
 // Expansion via input splitting The image of F w/r/t is the union of the image
@@ -64,7 +68,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, co
 // at every level of recursion, see if one of the arguments is constant. if it
 // is, compute the minterm for that and return it.
 //
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager, const int split)
+BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd manager, std::map<BDD_map_pair, BDD>& cache,const int split)
 {
 
   std::map<int, BDD> v = f;
@@ -72,7 +76,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, BDD C, Cudd mana
   {
     it->second = it->second.Constrain(C);
   }
-  return img(v, mapping, manager);
+  return img(v, mapping, manager, cache);
 
 }
 bool isConstant(const std::pair<int, BDD>& f) {
@@ -98,7 +102,7 @@ BDD LeftShift(const Cudd& manager, const BDD& dd)
     varlist[i] = i;
   }
   if (verbose_flag)
-    std::cerr << m << "\n";
+    std::cerr << __FILE__ << ": " <<m << "\n";
   BDD remove = manager.bddVar(m);
   result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
   if (verbose_flag)
@@ -150,7 +154,7 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
     varlist[i] = i;
   }
   if (verbose_flag)
-    std::cerr << m << "\n";
+    std::cerr << __FILE__ << ": " <<m << "\n";
   BDD remove = manager.bddVar(m);
   result = dd.Cofactor(remove) + dd.Cofactor(~remove) ;
   if (verbose_flag)

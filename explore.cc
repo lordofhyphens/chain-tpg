@@ -100,9 +100,9 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
   DdNode* next;
   int q = 0, pa = i;
   BDD minterm = manager.bddOne();
-  std::cerr << "Starting var " << manager.ReadInvPerm(Cudd_Regular(var)->index) << "\n";
+  std::cerr << __FILE__ << ": " <<"Starting var " << manager.ReadInvPerm(Cudd_Regular(var)->index) << "\n";
 
-  std::cerr << "Looking to traverse Path " << pa <<"\n";
+  std::cerr << __FILE__ << ": " <<"Looking to traverse Path " << pa <<"\n";
 
   // rewrite: first, figure out the actual path counts. If currently
   // complemented, ignore any uncomplemented edges that go to a constant node.
@@ -113,10 +113,10 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
   }
   while(Cudd_IsConstant(var) != 1) 
   {
-    std::cerr << "paths to non-zero: " << Cudd_CountPathsToNonZero(var) << " = " 
+    std::cerr << __FILE__ << ": " <<"paths to non-zero: " << Cudd_CountPathsToNonZero(var) << " = " 
               << Cudd_CountPathsToNonZero(Cudd_Not(Cudd_T(var))) 
               << " + " << Cudd_CountPathsToNonZero(Cudd_Not(Cudd_E(var))) << "\n";
-    std::cerr << "Minterms: " << Cudd_CountMinterm(ddman, var, nvars-q) << "\n";
+    std::cerr << __FILE__ << ": " <<"Minterms: " << Cudd_CountMinterm(ddman, var, nvars-q) << "\n";
 
     // invert as necessary to take into account complementation of the parent node
     DdNode* T = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_T(var)) : Cudd_T(var));
@@ -144,21 +144,21 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
     {
       skip_E = manager.ReadPerm(Cudd_Regular(E)->index) - (manager.ReadPerm(Cudd_Regular(var)->index)+1);
     }
-    std::cerr << "Skips: (T, E) = (" << skip_T << "," << skip_E << ")\n";
+    std::cerr << __FILE__ << ": " <<"Skips: (T, E) = (" << skip_T << "," << skip_E << ")\n";
 
-    std::cerr << "Nvars: " << nvars <<"\n"; 
+    std::cerr << __FILE__ << ": " <<"Nvars: " << nvars <<"\n"; 
     // Figure out the number of minterms along paths to nonzero.
-    std::cerr << "T minterms: " << Cudd_CountMinterm(ddman, T, nvars-1) << "\n";
-    std::cerr << "E minterms: " << Cudd_CountMinterm(ddman, E, nvars-1) << "\n";
+    std::cerr << __FILE__ << ": " <<"T minterms: " << Cudd_CountMinterm(ddman, T, nvars-1) << "\n";
+    std::cerr << __FILE__ << ": " <<"E minterms: " << Cudd_CountMinterm(ddman, E, nvars-1) << "\n";
     if (pa <  Cudd_CountMinterm(ddman, T, nvars-1))
     {
-      std::cerr << "Chose T\n";
+      std::cerr << __FILE__ << ": " <<"Chose T\n";
       next = T;
       minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
     } 
     else 
     { 
-      std::cerr << "Chose E\n";
+      std::cerr << __FILE__ << ": " <<"Chose E\n";
       pa -= Cudd_CountMinterm(ddman, T, nvars-1);
       next = E;
       minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
@@ -181,7 +181,7 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
     {
       nvars -= (skip_T +1);
     }
-    std::cerr << "Pa: " << pa << "\n";
+    std::cerr << __FILE__ << ": " <<"Pa: " << pa << "\n";
     var = next;
 
   }
@@ -200,7 +200,7 @@ BDD simulate(CUDD_Circuit& ckt, BDD curr_state)
   // iterate over every combination
   BDD used_inputs = ckt.getManager().bddZero();
   if (verbose_flag)
-  std::cerr << "pis: " << ckt.pi_vars.size() << "\n";
+  std::cerr << __FILE__ << ": " <<"pis: " << ckt.pi_vars.size() << "\n";
   for (int i  = 0; i < ckt.getManager().bddOne().CountMinterm(ckt.pi_vars.size()); i++)
   {
     BDD minterm = ckt.getManager().bddOne(); // form a minterm for this combination from all inputs
@@ -218,7 +218,7 @@ BDD simulate(CUDD_Circuit& ckt, BDD curr_state)
       for (int k = 0; k < 10; k++)
       {
         if (cs_input[k] < 3)
-          std::cerr << cs_input[k];
+          std::cerr << __FILE__ << ": " <<cs_input[k];
       }
       std::cerr <<"\n";
     }
@@ -258,6 +258,7 @@ int main(int argc, char* const argv[])
   int single_chain = 0;
   int partition_flag = 0;
   int simulate_flag = 0;
+  int do_backtrack = 1;
   int nolink = 0;
   float taken_time = 0;
   int option_index = 0;
@@ -268,6 +269,7 @@ int main(int argc, char* const argv[])
   std::vector<std::map<unsigned int, bool> > inputs;
   std::string infile(argv[1]);
   Cudd_Srandom(time(NULL));
+  std::map<BDD_map_pair, BDD> cache;
   while (1)
   {
     std::string max_time_str;
@@ -276,6 +278,7 @@ int main(int argc, char* const argv[])
     {
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
+      {"nobacktrack", no_argument,       &do_backtrack, 0},
       {"partition", no_argument,       &partition_flag, 1},
       {"simulate", no_argument,       &simulate_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
@@ -332,27 +335,30 @@ int main(int argc, char* const argv[])
   }
   if (infile.empty()) 
   {
-    std::cerr << "--bench argument is required.\n";
+    std::cerr << __FILE__ << ": " <<"--bench argument is required.\n";
     exit(1);
   }
   std::clog << "Loading circuit from file... ";
-  if (infile.find("level") != std::string::npos) {
+  if (infile.find("level") != std::string::npos) 
+  {
     std::clog << "presorted benchmark " << infile << " ";
     ckt.load(infile.c_str());
-  } else {
+  } 
+  else 
+  {
     std::clog << infile << "\n";
     ckt.read_bench(infile.c_str());
   }
   if (verbose_flag)
   {
-    std::cerr << "Printing ckt.\n";
+    std::cerr << __FILE__ << ": " <<"Printing ckt.\n";
     ckt.print();
   }
   if (do_export_flag)
   {
     std::stringstream temp;
     temp << infile.c_str() << ".level";
-    std::cerr << "Writing levelized ckt to " << temp.str() << "\n";
+    std::cerr << __FILE__ << ": " <<"Writing levelized ckt to " << temp.str() << "\n";
     ckt.save(temp.str().c_str());
     exit(0);
   }
@@ -366,7 +372,7 @@ int main(int argc, char* const argv[])
     exit(0);
   }
 
-  std::cerr << "Successfully formed BDDs for " << infile << "\n";
+  std::cerr << __FILE__ << ": " <<"Successfully formed BDDs for " << infile << "\n";
   // begin the search
 	clock_gettime(CLOCK_REALTIME, &start);
 
@@ -378,15 +384,16 @@ int main(int argc, char* const argv[])
   chain_t best_chain;
 
   if (verbose_flag)
-    std::cerr << "POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
+    std::cerr << __FILE__ << ": " <<"POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
 
 
-  BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager());
+  BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager(), cache);
+  cache.clear();
 
   BDD allterm = possible;
   long int possible_count = possible.CountMinterm(ckt.dff.size());
   if (verbose_flag)
-    std::cerr << "Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
+    std::cerr << __FILE__ << ": " <<"Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
 
   BDD next; 
 
@@ -405,22 +412,24 @@ int main(int argc, char* const argv[])
     unsigned long int dead = 0, other = 0;
     while ( (ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0 ) 
     { 
-      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 )
+      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 )
       {
         deadends += next;
         dead++;
         if (verbose_flag)
-          std::cerr << "State has no next-states, " << dead << ", " << other << "\n";
+          std::cerr << __FILE__ << ": " <<"State has no next-states, " << dead << ", " << other << "\n";
       } 
       else 
       {
         live += next;
         other++;
         if (verbose_flag)
-          std::cerr << "State has next-states, " << dead << ", " << other << "\n";
+          std::cerr << __FILE__ << ": " <<"State has next-states, " << dead << ", " << other << "\n";
       }
+      cache.clear();
       if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
         next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
+      cache.clear();
     }
     std::cout << "Deadend states: " << deadends.CountMinterm(ckt.dff.size()) << ", " << " Other states: " << live.CountMinterm(ckt.dff.size()) << "\n";
     exit(0);
@@ -432,17 +441,17 @@ int main(int argc, char* const argv[])
     while ( (ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0 ) 
     { 
 
-      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 )
+      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 )
       {
         // confirm that this indeed only has itself (or nothing) as a next-state
         BDD sim_results = simulate(ckt, next);
         if (sim_results == next)
         {
-          std::cerr << "Loops back to itself only." << "\n";
+          std::cerr << __FILE__ << ": " <<"Loops back to itself only." << "\n";
         }
         else if(sim_results == ckt.getManager().bddZero())
         {
-          //std::cerr << "Deadend." << "\n";
+          //std::cerr << __FILE__ << ": " <<"Deadend." << "\n";
         } 
         else
         {
@@ -457,14 +466,16 @@ int main(int argc, char* const argv[])
       {
         live += next;
       }
+      cache.clear();
       if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
         next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
     }
     exit(0);
   }
-  while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager()) - next).CountMinterm(ckt.dff.size()) == 0 ) 
+  while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
-    std::cerr << "State has no next-states!" << "\n";
+    cache.clear();
+    std::cerr << __FILE__ << ": " <<"State has no next-states!" << "\n";
     deadends += next;
     next = (ckt.getManager().bddOne() - deadends).PickOneMinterm(ckt.dff_vars);
   }
@@ -482,14 +493,15 @@ int main(int argc, char* const argv[])
   //
   do
   {
-    BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager());
+    BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
+    cache.clear();
     next_img -= avoid;
     next_img -= deadends;
     if  ((next_img- visited).CountMinterm(ckt.dff.size()) == 1)
       chain_images.erase(next.getNode());
     if ( (next_img - visited).CountMinterm(ckt.dff.size()) == 0)
     {
-      //std::cerr << "No unvisited states" << "\n";
+      //std::cerr << __FILE__ << ": " <<"No unvisited states" << "\n";
       chain_images.erase(next.getNode());
 
       // pick a next state that we can get somewhere else 
@@ -499,7 +511,7 @@ int main(int argc, char* const argv[])
         if (next_img.CountMinterm(ckt.dff.size()) == 0) 
         {
           if (verbose_flag)
-            std::cerr << "No minterms in image." << "\n";
+            std::cerr << __FILE__ << ": " <<"No minterms in image." << "\n";
           // set this chain to "best" if 
           if (chain.size > best_chain.size)
           {
@@ -509,24 +521,24 @@ int main(int argc, char* const argv[])
           avoid += next;
           visited -= next;
 
-          if (backtrack > max_backtrack)
+          if (!((backtrack > max_backtrack) && chain.size == 0 && do_backtrack) )
           { 
             backtrack = 0;
             avoid = ckt.getManager().bddZero();
             // end the chain?
             if (verbose_flag)
-              std::cerr << "Starting new chain\n";
+              std::cerr << __FILE__ << ": " <<"Starting new chain\n";
 
             all_chains.push_back(best_chain);
             best_chain.clear();
             chain.clear();
 
-            if (single_chain) { next = ckt.getManager().bddOne(); continue; }
+            if (single_chain) { next = ckt.getManager().bddOne(); taken_time = elapsed(start); continue; }
             possible -= visited;
             if (possible.CountMinterm(ckt.dff.size()) == 0)
             {
               if (verbose_flag)
-                std::cerr << "Nothing left in possible, abort." << "\n";
+                std::cerr << __FILE__ << ": " <<"Nothing left in possible, abort." << "\n";
               next = ckt.getManager().bddOne();
               continue;
             }
@@ -542,10 +554,10 @@ int main(int argc, char* const argv[])
                 chain_images.erase(temp.first);
             }
             if (verbose_flag)
-              std::cerr << "Found a non-empty image. " <<(item->second - visited).CountMinterm(ckt.dff.size()) << "minterms." << "\n";
+              std::cerr << __FILE__ << ": " <<"Found a non-empty image. " <<(item->second - visited).CountMinterm(ckt.dff.size()) << "minterms." << "\n";
             if ((item->second - visited).CountMinterm(ckt.dff.size()) == 0 || chain_images.size() == 0) {
               if (verbose_flag)
-                std::cerr << "Picking from another inital state."<<"\n"; 
+                std::cerr << __FILE__ << ": " <<__FILE__ << ":" << "Picking from another initial state."<<"\n"; 
               if (single_chain)
               {
                 next = ckt.getManager().bddOne();
@@ -562,6 +574,7 @@ int main(int argc, char* const argv[])
             visited += next;
             if  ((item->second - visited).CountMinterm(ckt.dff.size()) == 1)
               chain_images.erase(next.getNode());
+            taken_time = elapsed(start);
             continue;
           }
           else
@@ -569,8 +582,10 @@ int main(int argc, char* const argv[])
             next = chain.back();
             backtrack++;
 
+            taken_time = elapsed(start);
             if (verbose_flag)
-              std::cerr << "Rewinding stack.\n";
+              std::cerr << __FILE__ << ": " <<"Rewinding stack. " << backtrack << "," << taken_time << "ms \n";
+            if (taken_time > MAX_TIME) backtrack = max_backtrack+1;
             continue;
           }
         }
@@ -587,7 +602,7 @@ int main(int argc, char* const argv[])
           {
             // This has no new nodes.
             if (verbose_flag)
-              std::cerr << "Exhausted next-states for this minterm\n";
+              std::cerr << __FILE__ << ": " <<"Exhausted next-states for this minterm\n";
             chain_images.erase(next.getNode());
             next = ckt.getManager().bddZero();
             allterm -= next;
@@ -607,7 +622,7 @@ int main(int argc, char* const argv[])
     else
     {
       if (verbose_flag)
-        std::cerr << "Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
+        std::cerr << __FILE__ << ": " <<"Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
       //next.PrintCover();
       
 
@@ -620,15 +635,16 @@ int main(int argc, char* const argv[])
       chain.push(next);
     }
     if (verbose_flag)
-      std::cerr << "Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
+      std::cerr << __FILE__ << ": " <<"Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
     if (verbose_flag)
-      std::cerr << "chain_image: " << chain_images.size() << "\n";
+      std::cerr << __FILE__ << ": " <<"chain_image: " << chain_images.size() << "\n";
   taken_time = elapsed(start);
   }
   //while (allterm.CountMinterm(ckt.dff.size()) > (possible_count/3) &&  std::count_if(all_chains.begin(), all_chains.end(), isSingleton(0)) < (possible_count/3) && next != ckt.getManager().bddOne());
   while (next != ckt.getManager().bddOne() && taken_time < MAX_TIME ); // only using a single initial state, abort after MAX_TIME
   if (taken_time >= MAX_TIME) {
-    std::cerr << "Aborting due to too much time, " << taken_time << "ms"<< "\n";
+    taken_time = elapsed(start);
+    std::cerr << __FILE__ << ": " <<"Aborting due to too much time, " << taken_time << "ms"<< "\n";
     if (chain.size > best_chain.size)
     {
       all_chains.push_back(chain);
@@ -639,7 +655,9 @@ int main(int argc, char* const argv[])
     }
   }
   else 
-    std::cerr << "Took " << taken_time << "ms to form chains.\n";
+    std::cerr << __FILE__ << ": " <<"Took " << taken_time << "ms to form " << all_chains.size() << " chain";
+    if (all_chains.size() == 1) std::cerr <<"s";
+    std::cerr <<".\n";
 
   float link_time;
 
@@ -690,15 +708,15 @@ int main(int argc, char* const argv[])
         else
         {
           start++;
-          std::cerr << "No more compatible chains to this one.\n";
+          std::cerr << __FILE__ << ": " <<"No more compatible chains to this one.\n";
         }
-        std::cerr << "Checking for next link.\n";
-        std::cerr << "Chains: " << linked_chains.size() << "\n";
+        std::cerr << __FILE__ << ": " <<"Checking for next link.\n";
+        std::cerr << __FILE__ << ": " <<"Chains: " << linked_chains.size() << "\n";
       }
     }
   }
   link_time = elapsed(start);
-  std::cerr << "Linking took " << link_time << "ms.\n";
+  std::cerr << __FILE__ << ": " <<"Linking took " << link_time << "ms.\n";
   size_t nodes_visited = 0, hops = 0;
 
   size_t total_shifts = 0;
