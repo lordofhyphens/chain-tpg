@@ -564,6 +564,12 @@ int main(int argc, char* const argv[])
             all_chains.push_back(best_chain);
             best_chain.clear();
             chain.clear();
+            if (quit) 
+            {
+              if (verbose_flag)
+                std::cerr << __FILE__ << ": " << "Aborting.\n";
+              taken_time = elapsed(start); continue;
+            }
 
             if (single_chain) { next = ckt.getManager().bddOne(); taken_time = elapsed(start); continue; }
             possible -= visited;
@@ -618,7 +624,7 @@ int main(int argc, char* const argv[])
             taken_time = elapsed(start);
             if (verbose_flag)
               std::cerr << __FILE__ << ": " <<"Rewinding stack. " << backtrack << "," << taken_time << "ms \n";
-            if (taken_time > MAX_TIME) backtrack = max_backtrack+1;
+            if (quit || taken_time > MAX_TIME) backtrack = max_backtrack+1;
             continue;
           }
         }
