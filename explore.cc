@@ -69,6 +69,25 @@ class joined_t
     }
 };
 
+#include <signal.h>
+bool quit = false;
+bool in_loop = false;
+// Define the function to be called when ctrl-c (SIGINT) signal is sent to process
+void
+signal_callback_handler(int signum)
+{
+  if (signum == SIGINT)
+  {
+    fprintf(stderr,"Caught signal %d\n",signum);
+    fprintf(stderr,"Finishing up whatever is current and then exiting. Press CTRL-C to force-quit and lose intermediate results.\n");
+    if (!in_loop) exit(1);
+    // Cleanup and close up stuff here
+    in_loop = false;
+    quit = true;
+
+  }
+}
+
 
 struct isCompatible {
   const std::vector<joined_t>::iterator T;
@@ -273,6 +292,9 @@ int main(int argc, char* const argv[])
   Cudd_Srandom(time(NULL));
   std::map<BDD_map_pair, BDD> cache;
   ckt.getManager().AutodynEnable(CUDD_REORDER_SIFT);
+
+  // Register signal and signal handler
+  signal(SIGINT, signal_callback_handler);
   while (1)
   {
     std::string max_time_str;
@@ -322,7 +344,18 @@ int main(int argc, char* const argv[])
       case 'h':
         printf("Usage: %s (options) \n", argv[0]);
         printf("\t--bench /path/to/ckt : A circuit to apply benchmarks.\n");
-        abort();
+        printf("\t--verbose : Echo debugging statements to stderr\n");
+        printf("\t--nobacktrack : Don't backtrack when looking for chains.\n");
+        printf("\t--partition : Partition mode, not generally useful.\n");
+        printf("\t--simulate : Simulation-based search, VERY SLOW.\n");
+        printf("\t--brief : Quiets debug messages. The default.\n");
+        printf("\t--single : Only try to make a single chain.\n");
+        printf("\t--nolink : Don't try to link chains.\n");
+        printf("\t--export : Dump a levelized version of the circuit.\n");
+        printf("\t--exportbdd : Dump the bdds.\n");
+        printf("\t--time max : Maximum time to run simulation in msec.\n");
+        printf("\t--help : This dialog.\n");
+        exit(1);
         break;
       case 't':
         max_time_str = std::string(optarg);
@@ -471,12 +504,14 @@ int main(int argc, char* const argv[])
     }
     exit(0);
   }
-  while ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
+  in_loop = true;
+  while ( !quit && (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
     std::cerr << __FILE__ << ": " <<"State has no next-states!" << "\n";
     deadends += next;
     next = (ckt.getManager().bddOne() - deadends).PickOneMinterm(ckt.dff_vars);
   }
+  in_loop = false;
   int backtrack = 0;
   int max_backtrack = 10;
 
@@ -489,6 +524,7 @@ int main(int argc, char* const argv[])
   // Stop once we've reached everything possible from
   // this chain.
   //
+  in_loop = true;
   do
   {
     BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
@@ -542,7 +578,7 @@ int main(int argc, char* const argv[])
             std::map<DdNode*, BDD>::iterator item = chain_images.begin();
             std::pair<DdNode*, BDD> temp = *item;
 
-            while (chain_images.count(temp.first) == 0 && chain_images.size() > 0)
+            while (!quit && chain_images.count(temp.first) == 0 && chain_images.size() > 0)
             {
               item = chain_images.begin();
               std::advance(item, random_0_to_n(chain_images.size()) );
@@ -550,6 +586,7 @@ int main(int argc, char* const argv[])
               if ((temp.second - visited).CountMinterm(ckt.dff.size()) == 0)
                 chain_images.erase(temp.first);
             }
+            if (quit) continue;
             if (verbose_flag)
               std::cerr << __FILE__ << ": " <<"Found a non-empty image. " <<(item->second - visited).CountMinterm(ckt.dff.size()) << "minterms." << "\n";
             if ((item->second - visited).CountMinterm(ckt.dff.size()) == 0 || chain_images.size() == 0) {
@@ -612,7 +649,8 @@ int main(int argc, char* const argv[])
           next = ckt.getManager().bddZero();
         }
       }
-      while (next == ckt.getManager().bddZero() && taken_time < MAX_TIME );
+      while (!quit && next == ckt.getManager().bddZero() && taken_time < MAX_TIME );
+      if (quit || taken_time >= MAX_TIME) continue;
       allterm -= next;
       chain.push_empty(next);
     }
@@ -621,7 +659,7 @@ int main(int argc, char* const argv[])
       if (verbose_flag)
         std::cerr << __FILE__ << ": " <<"Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
       //next.PrintCover();
-      
+
 
       if (chain_images.count(next.getNode()) == 0 &&  (next_img - visited).CountMinterm(ckt.dff.size()) > 1)
       {
@@ -635,11 +673,11 @@ int main(int argc, char* const argv[])
       std::cerr << __FILE__ << ": " <<"Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
     if (verbose_flag)
       std::cerr << __FILE__ << ": " <<"chain_image: " << chain_images.size() << "\n";
-  taken_time = elapsed(start);
+    taken_time = elapsed(start);
   }
-  //while (allterm.CountMinterm(ckt.dff.size()) > (possible_count/3) &&  std::count_if(all_chains.begin(), all_chains.end(), isSingleton(0)) < (possible_count/3) && next != ckt.getManager().bddOne());
-  while (next != ckt.getManager().bddOne() && taken_time < MAX_TIME ); // only using a single initial state, abort after MAX_TIME
-  if (taken_time >= MAX_TIME) {
+  while (!quit && next != ckt.getManager().bddOne() && taken_time < MAX_TIME ); // only using a single initial state, abort after MAX_TIME
+  in_loop = false;
+  if (taken_time >= MAX_TIME || quit) {
     taken_time = elapsed(start);
     std::cerr << __FILE__ << ": " <<"Aborting due to too much time, " << taken_time << "ms"<< "\n";
     if (chain.size > best_chain.size)
@@ -653,8 +691,8 @@ int main(int argc, char* const argv[])
   }
   else 
     std::cerr << __FILE__ << ": " <<"Took " << taken_time << "ms to form " << all_chains.size() << " chain";
-    if (all_chains.size() == 1) std::cerr <<"s";
-    std::cerr <<".\n";
+  if (all_chains.size() == 1) std::cerr <<"s";
+  std::cerr <<".\n";
 
   float link_time;
 
