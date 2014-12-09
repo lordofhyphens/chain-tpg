@@ -78,10 +78,9 @@ signal_callback_handler(int signum)
 {
   if (signum == SIGINT)
   {
-    fprintf(stderr,"Caught signal %d\n",signum);
-    fprintf(stderr,"Finishing up whatever is current and then exiting. Press CTRL-C to force-quit and lose intermediate results.\n");
+    fprintf(stderr,"\nCaught signal %d\n",signum);
     if (!in_loop) exit(1);
-    // Cleanup and close up stuff here
+    fprintf(stderr,"Finishing up whatever is current and then exiting. Press CTRL-C to force-quit and lose intermediate results.\n");
     in_loop = false;
     quit = true;
 
