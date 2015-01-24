@@ -10,7 +10,7 @@ objs=bdd_img.o explore.o cudd_ckt.o
 CUDDFLAGS:=-I$(CUDD)/include
 CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include
 
-CXXFLAGS:=$(CUDDFLAGS) $(CPPUTEST_FLAGS) -O3 -mtune=native -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8 -DCPU -g -Wall -std=c++11 -march=native -fopenmp -D_GLIBCXX_PARALLEL 
+CXXFLAGS:=-static $(CUDDFLAGS) $(CPPUTEST_FLAGS) -O3 -mtune=native -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8 -DCPU -g -Wall -std=c++11 -march=native -fopenmp -D_GLIBCXX_PARALLEL 
 LDFLAGS+=$(CUDDLIB_SEARCH) -L${CPPUTEST_HOME}/lib -L./util 
 
 LIBS:=$(CUDDLIB_FLAGS) -lcktutil -lm -lz -lCppUTestExt -lCppUTest
