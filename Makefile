@@ -3,9 +3,12 @@ CUDDLIBS=cudd mtr util dddmp epd obj st
 objs=bdd_img.o explore.o cudd_ckt.o
 cudd_objs=$(CUDD)/obj/libobj.a $(CUDD)/cudd/libcudd.a $(CUDD)/mtr/libmtr.a $(CUDD)/st/libst.a $(CUDD)/util/libutil.a $(CUDD)/epd/libepd.a util/libcktutil.a
 
+CUDDLIB_FLAGS=$(foreach libs,$(CUDDLIBS),-L$(CUDD)/$(libs)) $(foreach libs,$(CUDDLIBS),-l$(libs))
+
 CUDDFLAGS:=-I$(CUDD)/include
-CXXFLAGS:= $(CUDDFLAGS) -DCPU -g -Wall -std=c++11 -mtune=native -march=native -fopenmp -D_GLIBCXX_PARALLEL
-LIBS:=-L./util -lcktutil -lm -lz 
+CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include
+CXXFLAGS:= $(CUDDFLAGS) $(CPPUTEST_FLAGS) -DCPU -g -Wall -std=c++11 -mtune=native -march=native -fopenmp -D_GLIBCXX_PARALLEL
+LIBS:=-lstdc++ $(CUDDLIB_FLAGS) -L$(CPPUTEST_HOME) -L${CPPUTEST_HOME}/lib -L./util -lutil -lcudd -lobj -lmtr -lst -lepd -lcktutil -lm -lz -lCppUTestExt -lCppUTest 
 CXX=g++
 .PHONY: all
 
@@ -34,5 +37,10 @@ $(CUDD)/Makefile:
 
 clean: 
 	rm -f explore *.o
-test: explore
-	./$< ../bench/s27.bench
+AllTests.o: AllTests.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+test: AllTests.o cudd_ckt.o bdd_img.o getpis_test.o 
+	@echo $(lflags)
+	$(CXX) $(CXXFLAGS) $(LIBS) -o $@ $^
+	./$@
