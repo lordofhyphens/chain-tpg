@@ -18,20 +18,19 @@ LDFLAGS+=-static $(CUDDLIB_SEARCH) -L${CPPUTEST_HOME}/lib -L./util
 LIBS:=$(CUDDLIB_FLAGS) -lcktutil -lm -lz $(CPPUTEST_LIBS)
 
 CXX=g++
-.PHONY: all test
+.PHONY: all test clean
 .SUFFIXES: cc c cpp
 
-.cpp:
 explore: $(objs)
 	echo $(LIBS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $^ -o $@ $(LIBS)
 
-explore.o: explore.cc cudd_ckt.h bdd_img.h 
+explore.o: explore.cpp cudd_ckt.h bdd_img.h 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	
-bdd_img.o: bdd_img.cc bdd_img.h cudd_ckt.h
+bdd_img.o: bdd_img.cpp bdd_img.h cudd_ckt.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@ $(LIBS)
-cudd_ckt.o: cudd_ckt.cc cudd_ckt.h
+cudd_ckt.o: cudd_ckt.cpp cudd_ckt.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 util/libcktutil.a: util/ckt.cc
