@@ -1,7 +1,10 @@
 #ifndef BDD_IMG_H
 #define BDD_IMG_H
-#include "cuddObj.hh"
-#include "cudd.h"
+#include <utility.h>
+#include <cudd.h>
+#include <cuddInt.h>
+#include <cuddObj.hh>
+
 #include <algorithm>
 #include <map>
 #include <iostream>

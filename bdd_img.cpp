@@ -1,6 +1,4 @@
 #include "bdd_img.h"
-#include "cudd.h"
-#include "cuddObj.hh"
 
 extern int verbose_flag;
 BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
