@@ -51,29 +51,29 @@ TEST_GROUP(GetPIs)
 TEST(GetPIs, TestConstantOneOne)
 {
   /* Check to make sure that GetPIs(1,1) = 1 in BDD terms. */
-  CHECK(GetPIs(*manager, funcs, manager->bddOne(), manager->bddOne()) == manager->bddOne());
+  CHECK_EQUAL(manager->bddOne(), GetPIs(*manager, funcs, manager->bddOne(), manager->bddOne()));
 }
 
 TEST(GetPIs, TestConstantZeroZero)
 {
   /* Check to make sure that GetPIs(0,0) = 0 in BDD terms. */
-  CHECK(GetPIs(*manager, funcs, manager->bddZero(), manager->bddZero()) == manager->bddZero());
+  CHECK_EQUAL(manager->bddZero(), GetPIs(*manager, funcs, manager->bddZero(), manager->bddZero()));
 }
 
 TEST(GetPIs, TestConstantOneZero)
 {
   /* Check to make sure that GetPIs(1,0) = 0 in BDD terms. */
-  CHECK(GetPIs(*manager, funcs, manager->bddOne(), manager->bddZero()) == manager->bddZero());
+  CHECK_EQUAL(manager->bddZero(), GetPIs(*manager, funcs, manager->bddOne(), manager->bddZero()));
 }
 TEST(GetPIs, TestConstantZeroOne)
 {
   /* Check to make sure that GetPIs(0,1) = 0 in BDD terms. */
-  CHECK(GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()) == manager->bddZero());
+  CHECK_EQUAL(manager->bddZero(), GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()));
 }
 TEST(GetPIs, TestConstantPrevZero)
 {
   /* Check to make sure that GetPIs(0,1) = 0 in BDD terms. */
-  CHECK(GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()) == manager->bddZero());
+  CHECK_EQUAL(manager->bddZero(), GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()));
 }
 
 TEST(GetPIs, Test10to11)
@@ -83,7 +83,7 @@ TEST(GetPIs, Test10to11)
   BDD checkval = vars[0] * ~vars[2] * ~vars[3];
   BDD result = GetPIs(*manager, funcs, prev,next);
 
-  CHECK((GetPIs(*manager, funcs, prev,next) * checkval) == checkval);
+  CHECK_EQUAL(checkval, (GetPIs(*manager, funcs, prev,next) * checkval));
 }
 TEST(GetPIs, Test10to11No111)
 {
@@ -102,7 +102,7 @@ TEST(GetPIs, GetPIOnlyOneMinterm)
   BDD checkval = vars[0] * vars[2] * vars[3];
   BDD result = GetPI(*manager, funcs, vars, prev,next);
 
-  CHECK(result.CountMinterm(vars.size()) == 1);
+  CHECK_EQUAL(1, result.CountMinterm(vars.size()));
 
 }
 
