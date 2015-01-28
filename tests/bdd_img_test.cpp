@@ -106,10 +106,9 @@ TEST(BDD_Img, C1711PrevTo11)
   // only consider other state minterms
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(BDD_Img, C1700PrevToSetSize2)
+TEST(BDD_Img, C1700PrevTo1101)
 {
-  // Tests the transition from 00 -> {11, 01}
-  // This checks the size of the set, not the equality of the set
+  // Tests the transition from 00 -> {11, 01}t
   BDD prev = vars[1] * vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
