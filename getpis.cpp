@@ -45,3 +45,31 @@ std::vector<BDD> getVector(Cudd manager, std::map<int, BDD> map)
     result.push_back(manager.bddVar(iter->first));
   return result;
 }
+
+std::map<int,int> getInputsFromMinterm(Cudd manager, BDD minterm)
+{
+  std::map<int, int> result;
+  DdNode* top = minterm.getNode();
+  bool complement = Cudd_IsComplement(top);
+  if (complement)
+    top = Cudd_Regular(top);
+  while (!Cudd_IsConstant(top))
+  {
+    if (Cudd_IsConstant(Cudd_T(top)))
+    {
+      result[top->index] = (complement ? 0 : 1);
+      top = Cudd_E(top);
+      if (Cudd_IsComplement(top))
+      {
+        complement = !complement;
+        top = Cudd_Regular(top);
+      }
+    }
+    else
+    {
+      result[top->index] = (!complement ? 0 : 1);
+      top = Cudd_T(top);
+    }
+  }
+  return result;
+}

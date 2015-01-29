@@ -14,6 +14,7 @@ TEST_GROUP(GetPIs)
 {
   Cudd* manager;
   std::map<int,BDD> vars;
+  std::map<int,BDD> pis;
   std::map<int,int> mapping;
   std::map<int,BDD> funcs;
 
@@ -26,10 +27,13 @@ TEST_GROUP(GetPIs)
     //
     manager = new Cudd();
     vars[0] = BDD(manager->bddVar(0)); // a
+    pis[0] = BDD(manager->bddVar(0)); // a
     vars[1] = BDD(manager->bddVar(1)); // b -> DFF
     vars[2] = BDD(manager->bddVar(2)); // c
+    pis[2] = BDD(manager->bddVar(2)); // c
     vars[3] = BDD(manager->bddVar(3)); // d -> DFF
     vars[4] = BDD(manager->bddVar(4)); // e
+    pis[4] = BDD(manager->bddVar(4)); // e
 
     for (int i = 0; i < 5; i++)
       mapping[i] = i;
@@ -42,6 +46,7 @@ TEST_GROUP(GetPIs)
   {
     vars.clear();
     mapping.clear();
+    pis.clear();
     funcs.clear();
     delete manager;
   }
@@ -104,6 +109,21 @@ TEST(GetPIs, GetPIOnlyOneMinterm)
 
   CHECK_EQUAL(1, result.CountMinterm(vars.size()));
 
+}
+
+TEST(GetPIs, BDDMintermToSet)
+{
+  BDD prev = vars[1] * ~vars[3];
+  BDD next = vars[1] * vars[3];
+  BDD checkval = vars[0] * vars[2] * vars[3];
+  BDD result = GetPI(*manager, funcs, vars, prev,next);
+  BDD result_single = result.PickOneMinterm(getVector(*manager,pis));
+  
+  std::map<int, int> single_flat = getInputsFromMinterm(*manager, result_single);
+  CHECK_EQUAL(1, single_flat[0]);
+  CHECK_EQUAL(0, single_flat[2]);
+  CHECK_EQUAL(1, single_flat[4]);
+  CHECK_EQUAL(3, single_flat.size());
 }
 
 TEST(GetPIs, BDDSetToVector)
