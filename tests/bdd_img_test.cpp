@@ -15,10 +15,10 @@ TEST_GROUP(BDD_Img_Toy)
   //setting up the test BDD's
   //This circuit is supplied on page 46 of Fabio Somenzi's BDD Paper
   //F1 is fed back into input C and F2 is fed back into input A
-  //00->00,01
-  //01->00
-  //10->11,10
-  //11->11,00
+  //00->00
+  //01->00,01
+  //10->00,11
+  //11->11,10
   manager = new Cudd();
   vars[0] = BDD(manager->bddVar(0));  //a DFF
   vars[1] = BDD(manager->bddVar(1));  //b
@@ -133,9 +133,9 @@ TEST(BDD_Img, C1710PrevTo01_11_10){
   printf("%d\n",funcs.size());
   DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(BDD_Img_Toy, Toy00PrevToImgSize2){
+TEST(BDD_Img_Toy, Toy00PrevToImgSize1){
   BDD prev = ~vars[0] * ~vars[2];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   result.PrintCover();
-  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
+  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
 }
