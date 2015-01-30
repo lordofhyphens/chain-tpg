@@ -68,8 +68,10 @@ TEST_GROUP(BDD_Img)
     for (int i = 0; i < 5; i++)
       mapping[i] = i;
 
-    funcs[1] = !(vars[4]*(!vars[1]+!vars[3])) + !((vars[2])*(!(vars[1])+!(vars[3])));
-    funcs[3] = ~(vars[0]) + ~(vars[1]) + ~((vars[2])*(~(vars[1])+~(vars[3])));
+    funcs[1] = (vars[4]*(!vars[1] + !vars[3])) + (vars[2] * (!vars[1] + !vars[3]));
+    //funcs[1] = !(vars[4]*(!vars[1]+!vars[3])) + !((vars[2])*(!(vars[1])+!(vars[3])));
+    funcs[3] = (vars[2]*(!vars[1] + !vars[3])) + (vars[0]*vars[1]);
+    //funcs[3] = ~(vars[0]) + ~(vars[1]) + ~((vars[2])*(~(vars[1])+~(vars[3])));
 
   }
   void teardown()
@@ -127,5 +129,13 @@ TEST(BDD_Img, C1710PrevTo01_11_10){
   // Tests the set size of the image, not the elements
   BDD prev = vars[1] * ~vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
+  result.PrintCover();
+  printf("%d\n",funcs.size());
   DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(BDD_Img_Toy, Toy00PrevToImgSize2){
+  BDD prev = ~vars[0] * ~vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  result.PrintCover();
+  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 }
