@@ -41,7 +41,7 @@ TEST_GROUP(BDD_Img_Toy)
 };
 
 
-TEST_GROUP(C17_img)
+TEST_GROUP(C17_Img)
 {
   Cudd* manager;
   std::map<int,BDD> vars;
@@ -102,14 +102,14 @@ TEST(BDD_Img_Toy, NonZeroNodeCounts)
 // Test Image Set Size
 /* With the test circuit, a previous state of 11 can only go to 11.
  */
-TEST(C17_Img, C1711PrevTo11)
+TEST(C17_Img, 11PrevTo11)
 {
   BDD prev = vars[1] * vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   // only consider other state minterms
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(C17_Img, C1700PrevTo11_01)
+TEST(C17_Img, 00PrevTo11_01)
 {
   // Tests the transition from 00 -> {11, 01}
   // Tests the set size of the image not the elements
@@ -117,14 +117,14 @@ TEST(C17_Img, C1700PrevTo11_01)
   BDD result = img(funcs, mapping, prev, *manager, cache);
   DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(C17_Img, C1701PrevTo11_01){
+TEST(C17_Img, 01PrevTo11_01){
   // Tests the transition from 01 -> {11, 01}
   // Tests the set size of the image, not the elements
   BDD prev = ~vars[1] * vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(C17_Img, C17_01PrevToImgSize3){
+TEST(C17_Img, 01PrevToImgSize3){
   // Tests the set size of the image
   BDD prev = vars[1] * ~vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
