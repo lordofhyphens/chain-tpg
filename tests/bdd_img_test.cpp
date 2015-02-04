@@ -67,10 +67,10 @@ TEST_GROUP(C17_Img)
 
     for (int i = 0; i < 5; i++)
       mapping[i] = i;
-
-    funcs[1] = (vars[4]*(!vars[1] + !vars[3])) + (vars[2] * (!vars[1] + !vars[3]));
+    //func[1] = B
+    funcs[1] = ((vars[4]*(~vars[1] + ~vars[3])) + (vars[2] * (~vars[1] + ~vars[3])));
     //funcs[1] = !(vars[4]*(!vars[1]+!vars[3])) + !((vars[2])*(!(vars[1])+!(vars[3])));
-    funcs[3] = (vars[2]*(!vars[1] + !vars[3])) + (vars[0]*vars[1]);
+    funcs[3] = ((vars[2]*(~vars[1] + ~vars[3])) + (vars[0]*vars[1]));
     //funcs[3] = ~(vars[0]) + ~(vars[1]) + ~((vars[2])*(~(vars[1])+~(vars[3])));
 
   }
@@ -102,29 +102,27 @@ TEST(BDD_Img_Toy, NonZeroNodeCounts)
 // Test Image Set Size
 /* With the test circuit, a previous state of 11 can only go to 11.
  */
-TEST(C17_Img, 11PrevTo11)
+TEST(C17_Img, ImgSize11Prev)
 {
   BDD prev = vars[1] * vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   // only consider other state minterms
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(C17_Img, 00PrevTo11_01)
+TEST(C17_Img, ImgSize00Prev)
 {
-  // Tests the transition from 00 -> {11, 01}
-  // Tests the set size of the image not the elements
+  // Tests the set size of the image
   BDD prev = ~vars[1] * ~vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
-  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
+  DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(C17_Img, 01PrevTo11_01){
-  // Tests the transition from 01 -> {11, 01}
+TEST(C17_Img, ImgSize01Prev){
   // Tests the set size of the image, not the elements
   BDD prev = ~vars[1] * vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
-  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
+  DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(C17_Img, 01PrevToImgSize3){
+TEST(C17_Img, ImgSize10Prev){
   // Tests the set size of the image
   BDD prev = vars[1] * ~vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
