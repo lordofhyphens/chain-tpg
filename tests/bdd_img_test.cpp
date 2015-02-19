@@ -2,7 +2,7 @@
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
-TEST_GROUP(BDD_Img_Toy)
+TEST_GROUP(Toy_Img)
 {
   Cudd* manager;
   std::map<int, BDD> vars;
@@ -67,11 +67,9 @@ TEST_GROUP(C17_Img)
 
     for (int i = 0; i < 5; i++)
       mapping[i] = i;
-    //func[1] = B
-    funcs[1] = ((vars[4]*(~vars[1] + ~vars[3])) + (vars[2] * (~vars[1] + ~vars[3])));
-    //funcs[1] = !(vars[4]*(!vars[1]+!vars[3])) + !((vars[2])*(!(vars[1])+!(vars[3])));
-    funcs[3] = ((vars[2]*(~vars[1] + ~vars[3])) + (vars[0]*vars[1]));
-    //funcs[3] = ~(vars[0]) + ~(vars[1]) + ~((vars[2])*(~(vars[1])+~(vars[3])));
+
+    funcs[3] = ~(~(vars[2]*~(vars[1]*vars[3]))*~(vars[0]*vars[1]));
+    funcs[1] = ~(~(vars[4]*~(vars[1]*vars[3]))*~(vars[2]*~(vars[1]*vars[2])));
 
   }
   void teardown()
@@ -92,7 +90,7 @@ TEST(C17_Img, NonZeroNodeCounts)
   CHECK(result.CountMinterm(vars.size()) > 0);
 }
 
-TEST(BDD_Img_Toy, NonZeroNodeCounts)
+TEST(Toy_Img, NonZeroNodeCounts)
 {
   BDD prev = ~vars[0] * ~vars[2];
   BDD result = img(funcs, mapping, prev, *manager, cache);
@@ -106,6 +104,7 @@ TEST(C17_Img, ImgSize11Prev)
 {
   BDD prev = vars[1] * vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
+  printf("\n%d\n", result.nodeCount());
   // only consider other state minterms
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
 }
@@ -114,25 +113,42 @@ TEST(C17_Img, ImgSize00Prev)
   // Tests the set size of the image
   BDD prev = ~vars[1] * ~vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
+  printf("\n%d\n", result.nodeCount());
   DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
 }
 TEST(C17_Img, ImgSize01Prev){
   // Tests the set size of the image, not the elements
   BDD prev = ~vars[1] * vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
+  printf("\n%d\n", result.nodeCount());
   DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
 }
 TEST(C17_Img, ImgSize10Prev){
   // Tests the set size of the image
   BDD prev = vars[1] * ~vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
-  result.PrintCover();
-  //printf("%d\n",funcs.size());
-  DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
+  printf("\n%d\n", result.nodeCount());
+  //result.PrintCover();
+  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(BDD_Img_Toy, Toy00PrevToImgSize1){
+TEST(Toy_Img, Toy00PrevToImgSize1){
   BDD prev = ~vars[0] * ~vars[2];
   BDD result = img(funcs, mapping, prev, *manager, cache);
-  result.PrintCover();
+  //result.PrintCover();
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(Toy_Img, ImgSize01Prev){
+  BDD prev = ~vars[0] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(Toy_Img, ImgSize10Prev){
+  BDD prev = vars[0] * ~vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(Toy_Img, ImgSize11Prev){
+  BDD prev = vars[0] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 }
