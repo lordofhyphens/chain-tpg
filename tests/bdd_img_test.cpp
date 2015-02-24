@@ -160,3 +160,12 @@ TEST(C17_Img, EqualityOperatorOnEqualSizeImgs)
   BDD img2 = img(funcs, mapping, prev, *manager, cache);
   CHECK_TRUE(img1 == img2);
 }
+
+TEST(C17_Img, EqualityOperatorOnDiffSizeImgs)
+{
+  BDD prev_11 = vars[1] * vars[3];
+  BDD prev_10 = vars[1] * ~vars[3];
+  BDD img_11 = img(funcs, mapping, prev_11, *manager, cache);
+  BDD img_10 = img(funcs, mapping, prev_10, *manager, cache);
+  CHECK_FALSE(img_11 == img_10);
+}
