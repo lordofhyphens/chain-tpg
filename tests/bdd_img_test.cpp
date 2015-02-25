@@ -21,15 +21,16 @@ TEST_GROUP(Toy_Img)
   //11->11,10
   manager = new Cudd();
   vars[0] = BDD(manager->bddVar(0));  //a DFF
-  vars[1] = BDD(manager->bddVar(1));  //b
+  vars[1] = BDD(manager->bddVar(1));  //b DFF
   vars[2] = BDD(manager->bddVar(2));  //c DFF
 
   for (int i = 0; i < 4; i++){
     mapping[i] = i;
   }
 
-  funcs[0] = vars[1]*(vars[0] + vars[2]);
-  funcs[2] = vars[0]*(vars[1] + vars[2]);
+  funcs[0] = vars[0]*(vars[1] + vars[2]);
+  funcs[1] = vars[1]*(vars[0] + vars[2]);
+  funcs[2] = vars[2]*(vars[0] + vars[2]);
   }
   void teardown()
   {
@@ -39,6 +40,29 @@ TEST_GROUP(Toy_Img)
     delete manager;
   }
 };
+
+TEST(Toy_Img, ImgSize111Prev){
+  BDD prev = vars[0] * vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(Toy_Img, NonZeroNodeCounts)
+{
+  BDD prev = ~vars[0] * ~vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  CHECK(result.CountMinterm(vars.size()) > 0);
+}
+TEST(Toy_Img, Toy000PrevToImgSize1){
+  BDD prev = ~vars[0] * ~vars[1] * ~vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  //result.PrintCover();
+  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(Toy_Img, ImgSize01Prev){
+  BDD prev = ~vars[0] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
+}
 
 
 TEST_GROUP(C17_Img)
@@ -90,12 +114,6 @@ TEST(C17_Img, NonZeroNodeCounts)
   CHECK(result.CountMinterm(vars.size()) > 0);
 }
 
-TEST(Toy_Img, NonZeroNodeCounts)
-{
-  BDD prev = ~vars[0] * ~vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  CHECK(result.CountMinterm(vars.size()) > 0);
-}
 
 // Test Image Set Size
 /* With the test circuit, a previous state of 11 can only go to 11.
@@ -131,27 +149,13 @@ TEST(C17_Img, ImgSize10Prev){
   //result.PrintCover();
   DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 }
-TEST(Toy_Img, Toy00PrevToImgSize1){
-  BDD prev = ~vars[0] * ~vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  //result.PrintCover();
-  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
-}
-TEST(Toy_Img, ImgSize01Prev){
-  BDD prev = ~vars[0] * vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
-}
+
 // TEST(Toy_Img, ImgSize10Prev){
 //   BDD prev = vars[0] * ~vars[2];
 //   BDD result = img(funcs, mapping, prev, *manager, cache);
 //   DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 // }
-TEST(Toy_Img, ImgSize11Prev){
-  BDD prev = vars[0] * vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
-}
+
 
 TEST(C17_Img, EqualityOperatorOnEqualSizeImgs)
 {
