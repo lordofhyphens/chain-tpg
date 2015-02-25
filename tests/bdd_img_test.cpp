@@ -169,3 +169,10 @@ TEST(C17_Img, EqualityOperatorOnDiffSizeImgs)
   BDD img_10 = img(funcs, mapping, prev_10, *manager, cache);
   CHECK_FALSE(img_11 == img_10);
 }
+
+TEST(C17_Img, Sandbox)
+{
+  // Just an automatically passing test to mess around with stuff
+  // Make sure to delete the contents of this before commiting for accurate diffs
+  CHECK_TRUE(1);
+}
