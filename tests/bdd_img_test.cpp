@@ -14,11 +14,7 @@ TEST_GROUP(Toy_Img)
   {
   //setting up the test BDD's
   //This circuit is supplied on page 46 of Fabio Somenzi's BDD Paper
-  //F1 is fed back into input C and F2 is fed back into input A
-  //00->00
-  //01->00,01
-  //10->00,11
-  //11->11,10
+  //F0 to input A, F1 is fed back into input B and F2 is fed back into input C
   manager = new Cudd();
   vars[0] = BDD(manager->bddVar(0));  //a DFF
   vars[1] = BDD(manager->bddVar(1));  //b DFF
@@ -58,10 +54,21 @@ TEST(Toy_Img, Toy000PrevToImgSize1){
   //result.PrintCover();
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
 }
+TEST(Toy_Img, ImgSize100Prev){
+  BDD prev = vars[0] * ~vars[1] * ~vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
+}
 TEST(Toy_Img, ImgSize01Prev){
   BDD prev = ~vars[0] * vars[2];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(Toy_Img, Sandbox)
+{
+  // Sandbox test for the Toy circuit
+  // Delete anything before comitting
+  CHECK_TRUE(1)
 }
 
 
@@ -150,12 +157,6 @@ TEST(C17_Img, ImgSize10Prev){
   DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
 }
 
-// TEST(Toy_Img, ImgSize10Prev){
-//   BDD prev = vars[0] * ~vars[2];
-//   BDD result = img(funcs, mapping, prev, *manager, cache);
-//   DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
-// }
-
 
 TEST(C17_Img, EqualityOperatorOnEqualSizeImgs)
 {
@@ -165,6 +166,7 @@ TEST(C17_Img, EqualityOperatorOnEqualSizeImgs)
   CHECK_TRUE(img1 == img2);
 }
 
+
 TEST(C17_Img, EqualityOperatorOnDiffSizeImgs)
 {
   BDD prev_11 = vars[1] * vars[3];
@@ -173,6 +175,7 @@ TEST(C17_Img, EqualityOperatorOnDiffSizeImgs)
   BDD img_10 = img(funcs, mapping, prev_10, *manager, cache);
   CHECK_FALSE(img_11 == img_10);
 }
+
 
 TEST(C17_Img, Sandbox)
 {
