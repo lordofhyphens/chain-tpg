@@ -66,8 +66,7 @@ TEST(Toy_Img, ImgSize01Prev){
 }
 TEST(Toy_Img, Sandbox)
 {
-  // Sandbox test for the Toy circuit
-  // Delete anything before comitting
+  // Sandbox test for the Toy circuit, should always pass
   CHECK_TRUE(1)
 }
 
