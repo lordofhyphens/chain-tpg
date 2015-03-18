@@ -1,7 +1,7 @@
 #include "../bdd_img.h"
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
-//IGNORE_TEST(Toy_Img, Sandbox);
+
 TEST_GROUP(Sandbox){
   Cudd* manager;
   std::map<int, BDD> vars;
@@ -34,12 +34,6 @@ TEST(Sandbox, ComplementaryComponents00){
   BDD prev = !vars[0] * !vars[1];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
-  // printf("prev = 11\n");
-  // printf("image minterm count: %d\n", result.CountMinterm(funcs.size()));
-  // printf("image.printminterms(): ");
-  // result.PrintMinterm();
-  // printf("image.printcover(): ");
-  // result.PrintCover();
 }
 TEST(Sandbox, ComplementaryComponents01){
   BDD prev = !vars[0] * vars[1];
@@ -57,6 +51,99 @@ TEST(Sandbox, ComplementaryComponents11){
   BDD prev = vars[0] * vars[1];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
+}
+
+TEST_GROUP(Identical_Components){
+  Cudd* manager;
+  std::map<int, BDD> vars;
+  std::map<int, int> mapping;
+  std::map<int, BDD> funcs;
+  std::map<int, BDD> funcs2;
+  std::map<BDD_map_pair, BDD> cache;
+  void setup()
+{
+  manager = new Cudd();
+  vars[0] = BDD(manager->bddVar(0));  //a DFF
+  vars[1] = BDD(manager->bddVar(1));  //b DFF
+  vars[2] = BDD(manager->bddVar(2));  //c DFF
+
+  for (int i = 0; i < 1; i++){
+    mapping[i] = i;
+  }
+
+  funcs[0] = vars[0]*(vars[1] + vars[2]);
+  funcs2[0] = vars[0]*(vars[1] + vars[2]);
+}
+void teardown()
+{
+  vars.clear();
+  funcs.clear();
+  funcs2.clear();
+  cache.clear();
+  delete manager;
+}
+};
+
+TEST(Identical_Components, Prev000){
+  BDD prev = !vars[0] * !vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  // printf("prev = 00\n");
+  // printf("image minterm count: %d\n", result.CountMinterm(funcs.size()));
+  // printf("image.printminterms(): ");
+  // result.PrintMinterm();
+  // printf("image.printcover(): ");
+  // result.PrintCover();
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev001){
+  BDD prev = !vars[0] * !vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev010){
+  BDD prev = !vars[0] * vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev011){
+  BDD prev = !vars[0] * vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev100){
+  BDD prev = vars[0] * !vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev101){
+  BDD prev = vars[0] * !vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev110){
+  BDD prev = vars[0] * vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev111){
+  BDD prev = vars[0] * vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
 }
 
 TEST_GROUP(Toy_Img)
@@ -95,19 +182,19 @@ TEST_GROUP(Toy_Img)
 };
 
 TEST(Sandbox, FirstTest){
-  printf("Sandbox circuit: f = a + b\n");
-  printf("minterms for input a: ");
-  vars[0].PrintMinterm();
-  printf("minterms for input b:");
-  vars[1].PrintMinterm();
-  BDD prev = vars[0] * vars[1];
-  printf("minterms for function a = 0 b = 1: ");
-  prev.PrintMinterm();
-  printf("minterms for function f = a + ~b: ");
-  funcs[0].PrintMinterm();
-  printf("Cover of f = a + ~b: ");
-  funcs[0].PrintCover();
-  prev.PrintCover();
+  // printf("Sandbox circuit: f = a + b\n");
+  // printf("minterms for input a: ");
+  // vars[0].PrintMinterm();
+  // printf("minterms for input b:");
+  // vars[1].PrintMinterm();
+  // BDD prev = vars[0] * vars[1];
+  // printf("minterms for function a = 0 b = 1: ");
+  // prev.PrintMinterm();
+  // printf("minterms for function f = a + ~b: ");
+  // funcs[0].PrintMinterm();
+  // printf("Cover of f = a + ~b: ");
+  // funcs[0].PrintCover();
+  // prev.PrintCover();
 
 }
 
@@ -140,13 +227,6 @@ TEST(Toy_Img, ImgSize01Prev){
 }
 TEST(Toy_Img, Sandbox)
 {
-  BDD prev = ~vars[0] * vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  // Sandbox test for the Toy circuit, should always pass
-  printf("prev.PrintMinter(): ");
-  prev.PrintMinterm();
-  printf("result.PrintMinterm(): ");
-  result.PrintMinterm();
 }
 
 
@@ -199,8 +279,6 @@ TEST(C17_Img, NonZeroNodeCounts)
   CHECK(result.CountMinterm(vars.size()) > 0);
 }
 
-
-// Test Image Set Size
 /* With the test circuit, a previous state of 11 can only go to 11.
  */
 // TEST(C17_Img, ImgSize11Prev)
