@@ -2,6 +2,38 @@
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
+TEST_GROUP(Constant_Input){
+  Cudd* manager;
+  std::map<int, BDD> vars;
+  std::map<int, int> mapping;
+  std::map<int, BDD> funcs;
+  std::map<BDD_map_pair, BDD> cache;
+
+  void setup(){
+    manager = new Cudd();
+    vars[0] = BDD(manager->bddOne());
+
+    mapping[0] = 0;
+
+    funcs[0] = vars[0];
+  }
+
+    void teardown(){
+      vars.clear();
+      funcs.clear();
+      cache.clear();
+      delete manager;
+    }
+
+};
+
+TEST(Constant_Input, ImmediateTerminalCase){
+  BDD prev = vars[0];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  CHECK_EQUAL(BDD(manager->bddOne()), result);
+  //CHECK_TRUE(result.IsOne());
+}
+
 TEST_GROUP(Sandbox){
   Cudd* manager;
   std::map<int, BDD> vars;
@@ -60,8 +92,8 @@ TEST_GROUP(Identical_Components){
   std::map<int, BDD> funcs;
   std::map<int, BDD> funcs2;
   std::map<BDD_map_pair, BDD> cache;
-  void setup()
-{
+
+  void setup(){
   manager = new Cudd();
   vars[0] = BDD(manager->bddVar(0));  //a DFF
   vars[1] = BDD(manager->bddVar(1));  //b DFF
@@ -74,8 +106,7 @@ TEST_GROUP(Identical_Components){
   funcs[0] = vars[0]*(vars[1] + vars[2]);
   funcs2[0] = vars[0]*(vars[1] + vars[2]);
 }
-void teardown()
-{
+void teardown(){
   vars.clear();
   funcs.clear();
   funcs2.clear();
@@ -144,89 +175,6 @@ TEST(Identical_Components, Prev111){
   BDD result = img(funcs, mapping, prev, *manager, cache);
   BDD result2 = img(funcs2, mapping, prev, *manager, cache);
   CHECK_TRUE(result == result2);
-}
-
-TEST_GROUP(Toy_Img)
-{
-  Cudd* manager;
-  std::map<int, BDD> vars;
-  std::map<int, int> mapping;
-  std::map<int, BDD> funcs;
-  std::map<BDD_map_pair, BDD> cache;
-
-  void setup()
-  {
-  //setting up the test BDD's
-  //This circuit is supplied on page 46 of Fabio Somenzi's BDD Paper
-  //F0 to input A, F1 is fed back into input B and F2 is fed back into input C
-  manager = new Cudd();
-  vars[0] = BDD(manager->bddVar(0));  //a DFF
-  vars[1] = BDD(manager->bddVar(1));  //b DFF
-  vars[2] = BDD(manager->bddVar(2));  //c DFF
-
-  for (int i = 0; i < 4; i++){
-    mapping[i] = i;
-  }
-
-  funcs[0] = vars[0]*(vars[1] + vars[2]);
-  funcs[1] = vars[1]*(vars[0] + vars[2]);
-  funcs[2] = vars[2]*(vars[0] + vars[2]);
-  }
-  void teardown()
-  {
-    vars.clear();
-    funcs.clear();
-    cache.clear();
-    delete manager;
-  }
-};
-
-TEST(Sandbox, FirstTest){
-  // printf("Sandbox circuit: f = a + b\n");
-  // printf("minterms for input a: ");
-  // vars[0].PrintMinterm();
-  // printf("minterms for input b:");
-  // vars[1].PrintMinterm();
-  // BDD prev = vars[0] * vars[1];
-  // printf("minterms for function a = 0 b = 1: ");
-  // prev.PrintMinterm();
-  // printf("minterms for function f = a + ~b: ");
-  // funcs[0].PrintMinterm();
-  // printf("Cover of f = a + ~b: ");
-  // funcs[0].PrintCover();
-  // prev.PrintCover();
-
-}
-
-TEST(Toy_Img, ImgSize111Prev){
-  BDD prev = vars[0] * vars[1] * vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
-}
-TEST(Toy_Img, NonZeroNodeCounts)
-{
-  BDD prev = ~vars[0] * ~vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  CHECK(result.CountMinterm(vars.size()) > 0);
-}
-TEST(Toy_Img, Toy000PrevToImgSize1){
-  BDD prev = ~vars[0] * ~vars[1] * ~vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  //result.PrintCover();
-  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
-}
-TEST(Toy_Img, ImgSize100Prev){
-  BDD prev = vars[0] * ~vars[1] * ~vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
-}
-TEST(Toy_Img, ImgSize01Prev){
-  BDD prev = ~vars[0] * vars[2];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
-  DOUBLES_EQUAL(2, result.CountMinterm(funcs.size()), 0.1);
-}
-TEST(Toy_Img, Sandbox)
-{
 }
 
 
