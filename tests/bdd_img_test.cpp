@@ -29,7 +29,7 @@ TEST_GROUP(Constant_Input){
 
 TEST(Constant_Input, ImmediateTerminalCase){
   BDD prev = vars[0];
-  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result = img(funcs, mapping, *manager, cache);
   CHECK_EQUAL(BDD(manager->bddOne()), result);
   //CHECK_TRUE(result.IsOne());
 }
@@ -253,7 +253,6 @@ TEST(C17_Img, NonZeroNodeCounts)
 //   DOUBLES_EQUAL(3, result.CountMinterm(funcs.size()), 0.1);
 // }
 TEST(C17_Img, ImgSize10Prev){
-  // Tests the set size of the image
   BDD prev = vars[1] * ~vars[3];
   BDD result = img(funcs, mapping, prev, *manager, cache);
   //printf("\n%d\n", result.nodeCount());
