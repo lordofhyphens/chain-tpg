@@ -8,8 +8,8 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
-typedef std::map<int, BDD> BDD_map;
-typedef std::pair<BDD_map, BDD> BDD_map_pair;
+using BDD_map = std::map<int, BDD>;
+using BDD_map_pair = std::pair<BDD_map, BDD>;
 
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager,std::map<BDD_map_pair, BDD>& cache, const int split = 0);
@@ -31,7 +31,7 @@ struct chain_t
   bool operator==(const chain_t& other)
   {
     if (size != other.size) return false;
-    for (unsigned int i = 0; i < data.size(); i++) {
+    for (auto i = 0; i < data.size(); i++) {
       if (data[i] != other.data[i]) return false;
     }
     return true;

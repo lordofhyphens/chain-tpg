@@ -22,6 +22,8 @@
 #include <ctime>
 
 float MAX_TIME = 3600000; // in ms 
+int MAX_LENGTH = std::numeric_limits<int>::max();
+
 class joined_t
 {
   public:
@@ -113,11 +115,11 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
 {
   manager.AutodynDisable();  // disable dynamic reordering
   manager.SetStdout(stderr);
-  DdManager* ddman = manager.getManager();
-  DdNode* var = root.getNode(); 
+  auto ddman = manager.getManager();
+  auto var = root.getNode(); 
   DdNode* next;
   int q = 0, pa = i;
-  BDD minterm = manager.bddOne();
+  auto minterm = manager.bddOne();
   std::cerr << __FILE__ << ": " <<"Starting var " << manager.ReadInvPerm(Cudd_Regular(var)->index) << "\n";
 
   std::cerr << __FILE__ << ": " <<"Looking to traverse Path " << pa <<"\n";
@@ -137,11 +139,11 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
     std::cerr << __FILE__ << ": " <<"Minterms: " << Cudd_CountMinterm(ddman, var, nvars-q) << "\n";
 
     // invert as necessary to take into account complementation of the parent node
-    DdNode* T = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_T(var)) : Cudd_T(var));
-    DdNode* E = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_E(var)) : Cudd_E(var));
+    auto* T = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_T(var)) : Cudd_T(var));
+    auto* E = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_E(var)) : Cudd_E(var));
 
     // number of vars skipped
-    int skip_T = 0, skip_E = 0;
+    auto skip_T = 0, skip_E = 0;
 
     if (Cudd_IsConstant(T))
     {
@@ -296,7 +298,7 @@ int main(int argc, char* const argv[])
   signal(SIGINT, signal_callback_handler);
   while (1)
   {
-    std::string max_time_str;
+    std::string max_time_str, max_length_str;
     std::string::size_type sz;     // alias of size_t
     static struct option long_options[] =
     {
@@ -315,6 +317,7 @@ int main(int argc, char* const argv[])
       {"help",     no_argument,       0, 'h'},
       {"bench",     required_argument,       0, 'b'},
       {"time",     required_argument,       0, 't'},
+      {"length",     required_argument,       0, 'l'},
       {0, 0}
     };
     /* getopt_long stores the option index here. */
@@ -353,6 +356,7 @@ int main(int argc, char* const argv[])
         printf("\t--export : Dump a levelized version of the circuit.\n");
         printf("\t--exportbdd : Dump the bdds.\n");
         printf("\t--time max : Maximum time to run simulation in msec.\n");
+        printf("\t--length max: Maximum length of chain to generate.\n");
         printf("\t--help : This dialog.\n");
         exit(1);
         break;
@@ -360,6 +364,9 @@ int main(int argc, char* const argv[])
         max_time_str = std::string(optarg);
         MAX_TIME = atof(max_time_str.c_str());
         break;
+      case 'l':
+        max_length_str = std::string(optarg);
+        MAX_LENGTH = atoi(max_time_str.c_str());
       case '?':
         /* getopt_long already printed an error message. */
         break;
@@ -680,7 +687,7 @@ int main(int argc, char* const argv[])
       std::cerr << __FILE__ << ": " <<"chain_image: " << chain_images.size() << "\n";
     taken_time = elapsed(start);
   }
-  while (!quit && next != ckt.getManager().bddOne() && taken_time < MAX_TIME ); // only using a single initial state, abort after MAX_TIME
+  while (!quit && next != ckt.getManager().bddOne() && taken_time < MAX_TIME && chain.size < MAX_LENGTH ); // only using a single initial state, abort after MAX_TIME
   in_loop = false;
   if (taken_time >= MAX_TIME || quit) {
     taken_time = elapsed(start);

@@ -7,9 +7,8 @@ BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, C
 
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager, std::map<BDD_map_pair, BDD>& cache,const int split)
 {
-  BDD result;
   manager.AutodynDisable();
-  result = _img(f, mapping, C, manager, cache, split);
+  auto result = _img(f, mapping, C, manager, cache, split);
 //  cache.clear();
   manager.AutodynEnable(CUDD_REORDER_SAME);
   return result;
@@ -36,7 +35,7 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
     if (verbose_flag) 
       std::cerr << __FILE__ << ":" << "Terminal case." << "\n";
     BDD constant_terms = manager.bddOne(), pos = manager.bddOne();
-    for (std::map<int, BDD>::const_iterator it = f.begin(); it != f.end(); it++) {
+    for (auto it = f.begin(); it != f.end(); it++) {
       if (isConstant(*it))
       { 
         // if this term is constant 1
@@ -58,35 +57,34 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
   } 
   else 
   {
-   std::map<int, BDD> v = f;
-   std::map<int, BDD> vn = f;
-   if (verbose_flag) 
-     std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(split) << "\n";
-   BDD p = manager.ReadVars(split);
-   if (cache.count(BDD_map_pair(f,p)) == 0)
-   {
-     // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
-     for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
-     {
-       it->second = it->second.Cofactor(p);
-     }
-
-     cache[BDD_map_pair(f,p)] = _img(v, mapping, manager, cache, split+1);
-   }
-   else
-     if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
-   // try to cache previously-found results
-   if (cache.count(BDD_map_pair(f,~p)) == 0)
-   {
-    for (std::map<int, BDD>::iterator it = vn.begin(); it != vn.end(); it++) 
+    auto v = f, vn = f;
+    if (verbose_flag) 
+      std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(split) << "\n";
+    BDD p = manager.ReadVars(split);
+    if (cache.count(BDD_map_pair(f,p)) == 0)
     {
-      it->second = it->second.Cofactor(~p);
+      // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
+      for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
+      {
+        it->second = it->second.Cofactor(p);
+      }
+
+      cache[BDD_map_pair(f,p)] = _img(v, mapping, manager, cache, split+1);
     }
-     cache[BDD_map_pair(f,~p)] = _img(vn, mapping, manager, cache, split+1);
-   }
-   else
-     if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
-   return cache[BDD_map_pair(f,p)] + cache[BDD_map_pair(f,~p)];
+    else
+      if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
+    // try to cache previously-found results
+    if (cache.count(BDD_map_pair(f,~p)) == 0)
+    {
+      for (std::map<int, BDD>::iterator it = vn.begin(); it != vn.end(); it++) 
+      {
+        it->second = it->second.Cofactor(~p);
+      }
+      cache[BDD_map_pair(f,~p)] = _img(vn, mapping, manager, cache, split+1);
+    }
+    else
+      if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
+    return cache[BDD_map_pair(f,p)] + cache[BDD_map_pair(f,~p)];
   }
 }
 // Expansion via input splitting The image of F w/r/t is the union of the image
@@ -104,8 +102,8 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
 BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager, std::map<BDD_map_pair, BDD>& cache,const int split)
 {
 
-  std::map<int, BDD> v = f;
-  for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
+  auto v = f;
+  for (auto it = v.begin(); it != v.end(); it++) 
   {
     it->second = it->second.Constrain(C);
   }
@@ -120,7 +118,7 @@ bool isConstant(const std::pair<int, BDD>& f) {
 // List of vars to shift is in vars
 BDD LeftShift(const Cudd& manager, const BDD& dd)
 {
-  int* varlist = new int[manager.ReadSize()];
+  auto* varlist = new int[manager.ReadSize()];
   std::vector<int> allvars;
   std::vector<int> shiftvars;
   BDD result = dd;
@@ -128,8 +126,8 @@ BDD LeftShift(const Cudd& manager, const BDD& dd)
   // iterate over each following var and move it to the previous position if 
 
   // iterate through all of the variable ids, get the lowest 
-  int m = std::numeric_limits<int>::max();
-  for (int i = 0; i < manager.ReadSize(); i++) {
+  auto m = std::numeric_limits<int>::max();
+  for (auto i = 0; i < manager.ReadSize(); i++) {
     if (Cudd_bddIsNsVar(manager.getManager(), i) == 1 && i <= m)
       m = i;
     varlist[i] = i;
@@ -144,8 +142,8 @@ BDD LeftShift(const Cudd& manager, const BDD& dd)
 
   // cofactor out this var to get it to dontcare
   // set up the varlist
-  int last = m;
-  for (int i = 0; i < manager.ReadSize(); i++) {
+  auto last = m;
+  for (auto i = 0; i < manager.ReadSize(); i++) {
     if (Cudd_bddIsPiVar(manager.getManager(), i))
       varlist[i] = i;
     if (Cudd_bddIsNsVar(manager.getManager(), i))
@@ -154,7 +152,7 @@ BDD LeftShift(const Cudd& manager, const BDD& dd)
         varlist[i] = last;
         last = i;
         result = result.Permute(varlist);
-        for (int i = 0; i < manager.ReadSize(); i++) {
+        for (auto i = 0; i < manager.ReadSize(); i++) {
           varlist[i] = i;
         }
       }
@@ -172,7 +170,7 @@ BDD LeftShift(const Cudd& manager, const BDD& dd)
 
 BDD RightShift(const Cudd& manager, const BDD& dd)
 {
-  int* varlist = new int[manager.ReadSize()];
+  auto* varlist = new int[manager.ReadSize()];
   std::vector<int> allvars;
   std::vector<int> shiftvars;
   BDD result = dd;
@@ -180,8 +178,8 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
   // iterate over each following var and move it to the previous position if 
 
   // iterate through all of the variable ids, get the lowest 
-  int m = std::numeric_limits<int>::min();
-  for (int i = manager.ReadSize(); i >= 0 ; i--) {
+  auto m = std::numeric_limits<int>::min();
+  for (auto i = manager.ReadSize(); i >= 0 ; i--) {
     if (Cudd_bddIsNsVar(manager.getManager(), i) == 1 && i >= m)
       m = i;
     varlist[i] = i;
@@ -196,8 +194,8 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
 
   // cofactor out this var to get it to dontcare
   // set up the varlist
-  int last = m;
-  for (int i = manager.ReadSize(); i >= 0 ; i--) {
+  auto last = m;
+  for (auto i = manager.ReadSize(); i >= 0 ; i--) {
     if (Cudd_bddIsPiVar(manager.getManager(), i))
       varlist[i] = i;
     if (Cudd_bddIsNsVar(manager.getManager(), i))
@@ -224,7 +222,7 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
 
 BDD chain_t::pop()
 { 
-    BDD temp = data.back();
+    auto temp = data.back();
     data.pop_back();
     if (std::find(data.begin(),data.end(), temp) == data.end())
       size -= 1;
