@@ -9,10 +9,10 @@ CUDDFLAGS:=-I$(CUDD)/include
 CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include
 CPPUTEST_LIBS:=-lCppUTest -lCppUTestExt
 
-objs=getpis.o bdd_img.o explore.o cudd_ckt.o
+objs=getpis.o bdd_util.o bdd_img.o explore.o cudd_ckt.o
 TEST=$(foreach test,$(objs:.o=_test.cpp) AllTests.cpp,tests/${test})
 CPPFLAGS:=$(CUDDFLAGS) -Iutil -D_GLIBCXX_PARALLEL 
-CXXFLAGS:= -O3 -mtune=native -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8 -DCPU -g -Wall -std=c++11 -march=native -fopenmp 
+CXXFLAGS:= -O3 -mtune=native -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8 -DCPU -g -Wall -std=c++11 -march=native -fopenmp $(CPPUTEST_FLAGS) 
 LDFLAGS+=-static $(CUDDLIB_SEARCH) -L./util 
 
 LIBS:=$(CUDDLIB_FLAGS) -lcktutil -lm -lz
@@ -28,6 +28,8 @@ explore.o: explore.cpp cudd_ckt.h bdd_img.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	
 bdd_img.o: bdd_img.cpp bdd_img.h cudd_ckt.h
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@ $(LIBS)
+bdd_util.o: bdd_util.cpp bdd_util.h cudd_ckt.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@ $(LIBS)
 cudd_ckt.o: cudd_ckt.cpp cudd_ckt.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
@@ -47,7 +49,7 @@ clean:
 	rm -f explore *.o tests/*.o testsuite
 
 AllTests.o: $(TEST)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $^ -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(CPPUTEST_FLAGS) -c $^ -o $@
 
 testsuite: $(subst explore.o,,$(objs)) $(TEST:.cpp=.o)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(CPPUTEST_FLAGS) $(LDFLAGS) -L${CPPUTEST_HOME}/lib $^ $(LIBS) $(CPPUTEST_LIBS) -o $@ 

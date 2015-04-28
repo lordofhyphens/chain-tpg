@@ -31,7 +31,7 @@ struct chain_t
   bool operator==(const chain_t& other)
   {
     if (size != other.size) return false;
-    for (auto i = 0; i < data.size(); i++) {
+    for (auto i = static_cast<decltype(data.size())>(0); i < data.size(); i++) {
       if (data[i] != other.data[i]) return false;
     }
     return true;

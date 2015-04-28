@@ -10,6 +10,7 @@
 
 #include "util/vectors.h"
 #include "util/utility.h"
+#include "bdd_util.h"
 #include <algorithm>
 #include <deque>
 #include <cstring>
@@ -22,6 +23,7 @@
 
 #include <random>
 #include <ctime>
+
 
 float MAX_TIME = 3600000; // in ms 
 int MAX_LENGTH = std::numeric_limits<int>::max();
@@ -215,90 +217,6 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
 
 }
 
-BDD PickOneMinermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars, std::function<long double(long double, long double)> dist,std::map<int,int> reorder = std::map<int,int>()) 
-{
-  manager.AutodynDisable();  // disable dynamic reordering
-  manager.SetStdout(stderr);
-  auto var = root.getNode(); 
-  DdNode* next = nullptr;
-  int q = 0;
-  std::random_device rd;
-  std::mt19937_64 gen(rd());
-  auto minterm = manager.bddOne();
-
-  // complemented, ignore any uncomplemented edges that go to a constant node.
-  // if currently uncomplemented, ignore any complemented edges that go to a constant node.
-  //
-  if (manager.bddOne() == root) 
-  {
-    for_each(vars.begin(), vars.end(), [&] (const BDD& v) {
-        std::bernoulli_distribution d(dist(2,reorder[Cudd_Regular(v.getNode())->index]));
-        auto t = d(gen);
-        if (verbose_flag)
-          std::cout << __FILE__ << ", " << __LINE__ << ": Distribution " << std::scientific<<  std::setprecision(20) << dist(2,Cudd_Regular(v.getNode())->index - (vars.size()+1)) << " for var " << Cudd_Regular(v.getNode())->index - (1+vars.size())<<"\n";
-        if (verbose_flag)
-          std::cout << (t ? "True" : "False") << "\n";
-        if (t)
-        {
-        if (verbose_flag)
-          std::cout << __FILE__ << ", " << __LINE__ << ": " <<"Chose T\n";
-        minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
-        } 
-        else 
-        { 
-        if (verbose_flag)
-          std::cout << __FILE__ << ", " << __LINE__ << ": " <<"Chose E\n";
-        minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
-        }
-      });
-  }
-  while(Cudd_IsConstant(var) != 1) 
-  {
-    std::bernoulli_distribution d(dist(2,reorder[Cudd_Regular(var)->index]));
-    // invert as necessary to take into account complementation of the parent node
-    auto* T = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_T(var)) : Cudd_T(var));
-    auto* E = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_E(var)) : Cudd_E(var));
-
-    if (d(gen))
-    {
-      if (verbose_flag)
-        std::cout << __FILE__ << ": " <<"Chose T\n";
-      next = T;
-      minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
-    } 
-    else 
-    { 
-      if (verbose_flag)
-        std::cout << __FILE__ << ": " <<"Chose E\n";
-      next = E;
-      minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
-    }
-    q++;
-    var = next;
-  }
-  for_each(vars.begin(), vars.end(), [&] (const BDD& v) {
-      std::bernoulli_distribution d(dist(2,reorder[Cudd_Regular(v.getNode())->index]));
-      if ((minterm & v.Support()) != manager.bddOne())
-      {
-        auto t = d(gen);
-        if (verbose_flag)
-          std::cout << (t ? "True" : "False") << "\n";
-        if (t)
-        {
-          minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
-        } 
-        else 
-        { 
-          minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
-        }
-      }
-    });
- // minterm.PrintCover();
-  manager.SetStdout(stdout);
-  manager.AutodynEnable(CUDD_REORDER_SAME);
-  return minterm;
-
-}
 
 BDD simulate(CUDD_Circuit& ckt, BDD curr_state) 
 {
@@ -359,6 +277,7 @@ int sum_sizes(std::vector<std::pair<std::vector<BDD> ,int> >::const_iterator sta
   return sum;
 }
 
+
 int main(int argc, char* const argv[])
 {
   std::map<int, int> distmapping;
@@ -374,7 +293,6 @@ int main(int argc, char* const argv[])
   float taken_time = 0;
   int option_index = 0;
 	extern int optind;
-  auto distfunc = [] (long double p, long double i) { return (std::pow<long double>(p,std::pow<long double>(2,i)) / (std::pow<long double>(p,std::pow<long double>(2,i)) + 1.0)); };
   srand(time(NULL));
   int do_export_flag = 0;
   int bdd_export_flag = 0;
@@ -614,7 +532,7 @@ int main(int argc, char* const argv[])
   if (allrand > 0) {
     for (auto i = 0; i < allrand; i++) {
       BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
-      next = PickOneMinermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distfunc, distmapping);
+      next = PickOneMintermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distribution<long double>, distmapping);
       chain.push(next);
     }
     quit = true;
@@ -717,14 +635,14 @@ int main(int argc, char* const argv[])
                 next = ckt.getManager().bddOne();
                 continue;
               } 
-              next = PickOneMinermWithDistribution(ckt.getManager(), (possible-visited), ckt.dff_vars, distfunc, distmapping);
+              next = PickOneMintermWithDistribution(ckt.getManager(), (possible-visited), ckt.dff_vars, distribution<long double>, distmapping);
               visited += next;
               allterm -= next;
               chain.push_empty(next);
               continue;
             }
 
-            next = PickOneMinermWithDistribution(ckt.getManager(), (item->second - visited), ckt.dff_vars, distfunc, distmapping);
+            next = PickOneMintermWithDistribution(ckt.getManager(), (item->second - visited), ckt.dff_vars, distribution<long double>, distmapping);
             visited += next;
             if  ((item->second - visited).CountMinterm(ckt.dff.size()) == 1)
               chain_images.erase(next.getNode());
@@ -745,7 +663,7 @@ int main(int argc, char* const argv[])
         }
         else 
         {
-          next = PickOneMinermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distfunc, distmapping);
+          next = PickOneMintermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distribution<long double>, distmapping);
           allterm -= next;
           all_backtracks++;
           backtrack = (backtrack > 0 ? backtrack -1 : 0);
@@ -785,7 +703,7 @@ int main(int argc, char* const argv[])
       {
         chain_images[next.getNode()] = next_img;
       }
-      next = PickOneMinermWithDistribution(ckt.getManager(), (next_img - visited), ckt.dff_vars, distfunc, distmapping);
+      next = PickOneMintermWithDistribution(ckt.getManager(), (next_img - visited), ckt.dff_vars, distribution<long double>, distmapping);
 
       visited += next;
       chain.push(next);
@@ -810,10 +728,6 @@ int main(int argc, char* const argv[])
       all_chains.push_back(best_chain);
     }
   }
-  else 
-    std::cerr << __FILE__ << ": " <<"Took " << taken_time << "ms to form " << all_chains.size() << " chain";
-  if (all_chains.size() == 1) std::cerr <<"s";
-  std::cerr <<".\n";
 
   float link_time;
 
@@ -826,6 +740,9 @@ int main(int argc, char* const argv[])
 
   std::vector<chain_t>::iterator p = std::remove_if(all_chains.begin(), all_chains.end(), isSingleton(0));
   all_chains.erase(p,all_chains.end());
+  std::cerr << __FILE__ << ": " <<"Took " << taken_time << "ms to form " << all_chains.size() << " chain";
+  if (all_chains.size() == 1) std::cerr <<"s";
+  std::cerr <<".\n";
 
   const int LINK_SPOTS=1;
   const int MAX_SHIFTS = (ckt.dff.size() / 2) + (ckt.dff.size() % 2 > 0);
@@ -871,6 +788,16 @@ int main(int argc, char* const argv[])
       }
     }
   }
+  FILE fp_old = *stdout;  // preserve the original stdout
+  *stdout = *fopen("links.txt","w");  // redirect stdout to null
+  for (auto &p : all_chains)
+  {
+    for (auto &cover : p.data)
+    {
+      cover.PrintCover();
+    }
+  }
+  *stdout=fp_old;  // restore stdout
   link_time = elapsed(start);
   std::cerr << __FILE__ << ": " <<"Linking took " << link_time << "ms.\n";
   size_t nodes_visited = 0, hops = 0;
