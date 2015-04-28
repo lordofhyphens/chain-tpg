@@ -3,6 +3,7 @@
 #include "cudd_ckt.h"
 #include "bdd_img.h"
 
+
 #ifndef CPU
   #define CPU
 #endif 
@@ -17,6 +18,7 @@
 #include <limits>
 #include <fstream>
 #include <getopt.h>
+#include <iomanip>      // std::setprecision
 
 #include <random>
 #include <ctime>
@@ -213,6 +215,91 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
 
 }
 
+BDD PickOneMinermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars, std::function<long double(long double, long double)> dist,std::map<int,int> reorder = std::map<int,int>()) 
+{
+  manager.AutodynDisable();  // disable dynamic reordering
+  manager.SetStdout(stderr);
+  auto var = root.getNode(); 
+  DdNode* next = nullptr;
+  int q = 0;
+  std::random_device rd;
+  std::mt19937_64 gen(rd());
+  auto minterm = manager.bddOne();
+
+  // complemented, ignore any uncomplemented edges that go to a constant node.
+  // if currently uncomplemented, ignore any complemented edges that go to a constant node.
+  //
+  if (manager.bddOne() == root) 
+  {
+    for_each(vars.begin(), vars.end(), [&] (const BDD& v) {
+        std::bernoulli_distribution d(dist(2,reorder[Cudd_Regular(v.getNode())->index]));
+        auto t = d(gen);
+        if (verbose_flag)
+          std::cout << __FILE__ << ", " << __LINE__ << ": Distribution " << std::scientific<<  std::setprecision(20) << dist(2,Cudd_Regular(v.getNode())->index - (vars.size()+1)) << " for var " << Cudd_Regular(v.getNode())->index - (1+vars.size())<<"\n";
+        if (verbose_flag)
+          std::cout << (t ? "True" : "False") << "\n";
+        if (t)
+        {
+        if (verbose_flag)
+          std::cout << __FILE__ << ", " << __LINE__ << ": " <<"Chose T\n";
+        minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
+        } 
+        else 
+        { 
+        if (verbose_flag)
+          std::cout << __FILE__ << ", " << __LINE__ << ": " <<"Chose E\n";
+        minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
+        }
+      });
+  }
+  while(Cudd_IsConstant(var) != 1) 
+  {
+    std::bernoulli_distribution d(dist(2,reorder[Cudd_Regular(var)->index]));
+    // invert as necessary to take into account complementation of the parent node
+    auto* T = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_T(var)) : Cudd_T(var));
+    auto* E = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_E(var)) : Cudd_E(var));
+
+    if (d(gen))
+    {
+      if (verbose_flag)
+        std::cout << __FILE__ << ": " <<"Chose T\n";
+      next = T;
+      minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+    } 
+    else 
+    { 
+      if (verbose_flag)
+        std::cout << __FILE__ << ": " <<"Chose E\n";
+      next = E;
+      minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+    }
+    q++;
+    var = next;
+  }
+  for_each(vars.begin(), vars.end(), [&] (const BDD& v) {
+      std::bernoulli_distribution d(dist(2,reorder[Cudd_Regular(v.getNode())->index]));
+      if ((minterm & v.Support()) != manager.bddOne())
+      {
+        auto t = d(gen);
+        if (verbose_flag)
+          std::cout << (t ? "True" : "False") << "\n";
+        if (t)
+        {
+          minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
+        } 
+        else 
+        { 
+          minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(v.getNode())->index));
+        }
+      }
+    });
+ // minterm.PrintCover();
+  manager.SetStdout(stdout);
+  manager.AutodynEnable(CUDD_REORDER_SAME);
+  return minterm;
+
+}
+
 BDD simulate(CUDD_Circuit& ckt, BDD curr_state) 
 {
   // Make a BDD by evaluating every next-state function with curr_state and every combination of the inputs
@@ -274,6 +361,7 @@ int sum_sizes(std::vector<std::pair<std::vector<BDD> ,int> >::const_iterator sta
 
 int main(int argc, char* const argv[])
 {
+  std::map<int, int> distmapping;
   CUDD_Circuit ckt;
   timespec start;
   int arg;;
@@ -281,10 +369,12 @@ int main(int argc, char* const argv[])
   int partition_flag = 0;
   int simulate_flag = 0;
   int do_backtrack = 1;
+  int allrand = 0;
   int nolink = 0;
   float taken_time = 0;
   int option_index = 0;
 	extern int optind;
+  auto distfunc = [] (long double p, long double i) { return (std::pow<long double>(p,std::pow<long double>(2,i)) / (std::pow<long double>(p,std::pow<long double>(2,i)) + 1.0)); };
   srand(time(NULL));
   int do_export_flag = 0;
   int bdd_export_flag = 0;
@@ -311,6 +401,7 @@ int main(int argc, char* const argv[])
       {"export", no_argument, &do_export_flag, 1},
       {"single", no_argument, &single_chain, 1},
       {"nolink", no_argument, &nolink, 1},
+      {"allrandom", required_argument, 0, 'r'},
       {"exportbdd", no_argument, &bdd_export_flag, 1},
       /* These options don't set a flag.
          We distinguish them by their indices. */
@@ -339,7 +430,10 @@ int main(int argc, char* const argv[])
           printf (" with arg %s", optarg);
         printf ("\n");
         break;
-
+      case 'r':
+        max_length_str = std::string(optarg);
+        allrand = atoi(max_time_str.c_str());
+        break;
       case 'b':
         infile = std::string(optarg);
         break;
@@ -367,6 +461,7 @@ int main(int argc, char* const argv[])
       case 'l':
         max_length_str = std::string(optarg);
         MAX_LENGTH = atoi(max_time_str.c_str());
+        break;
       case '?':
         /* getopt_long already printed an error message. */
         break;
@@ -440,6 +535,7 @@ int main(int argc, char* const argv[])
 
   BDD avoid = ckt.getManager().bddZero();
   next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
+
   unsigned int all_backtracks = 0;
 
   chain.push_empty(next);
@@ -511,6 +607,18 @@ int main(int argc, char* const argv[])
     exit(0);
   }
   in_loop = true;
+  for_each(ckt.dff_vars.begin(), ckt.dff_vars.end(), [&] (const BDD& v) {
+      int z = Cudd_Regular(v.getNode())->index;
+      distmapping[z] = std::distance(ckt.dff_vars.begin(), std::find(ckt.dff_vars.begin(), ckt.dff_vars.end(), v));
+      });
+  if (allrand > 0) {
+    for (auto i = 0; i < allrand; i++) {
+      BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
+      next = PickOneMinermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distfunc, distmapping);
+      chain.push(next);
+    }
+    quit = true;
+  }
   while ( !quit && (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
     std::cerr << __FILE__ << ": " <<"State has no next-states!" << "\n";
@@ -609,14 +717,14 @@ int main(int argc, char* const argv[])
                 next = ckt.getManager().bddOne();
                 continue;
               } 
-              next = (possible-visited).PickOneMinterm(ckt.dff_vars);
+              next = PickOneMinermWithDistribution(ckt.getManager(), (possible-visited), ckt.dff_vars, distfunc, distmapping);
               visited += next;
               allterm -= next;
               chain.push_empty(next);
               continue;
             }
 
-            next = (item->second - visited).PickOneMinterm(ckt.dff_vars);
+            next = PickOneMinermWithDistribution(ckt.getManager(), (item->second - visited), ckt.dff_vars, distfunc, distmapping);
             visited += next;
             if  ((item->second - visited).CountMinterm(ckt.dff.size()) == 1)
               chain_images.erase(next.getNode());
@@ -637,7 +745,7 @@ int main(int argc, char* const argv[])
         }
         else 
         {
-          next = next_img.PickOneMinterm(ckt.dff_vars);
+          next = PickOneMinermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distfunc, distmapping);
           allterm -= next;
           all_backtracks++;
           backtrack = (backtrack > 0 ? backtrack -1 : 0);
@@ -677,7 +785,8 @@ int main(int argc, char* const argv[])
       {
         chain_images[next.getNode()] = next_img;
       }
-      next = (next_img - visited).PickOneMinterm(ckt.dff_vars); 
+      next = PickOneMinermWithDistribution(ckt.getManager(), (next_img - visited), ckt.dff_vars, distfunc, distmapping);
+
       visited += next;
       chain.push(next);
     }

@@ -11,12 +11,11 @@ CPPUTEST_LIBS:=-lCppUTest -lCppUTestExt
 
 objs=getpis.o bdd_img.o explore.o cudd_ckt.o
 TEST=$(foreach test,$(objs:.o=_test.cpp) AllTests.cpp,tests/${test})
-CPPFLAGS:=$(CPPUTEST_FLAGS) $(CUDDFLAGS) -Iutil $(CPPUTEST_FLAGS) -D_GLIBCXX_PARALLEL 
+CPPFLAGS:=$(CUDDFLAGS) -Iutil -D_GLIBCXX_PARALLEL 
 CXXFLAGS:= -O3 -mtune=native -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8 -DCPU -g -Wall -std=c++11 -march=native -fopenmp 
-LDFLAGS+=-static $(CUDDLIB_SEARCH) -L${CPPUTEST_HOME}/lib -L./util 
+LDFLAGS+=-static $(CUDDLIB_SEARCH) -L./util 
 
-LIBS:=$(CUDDLIB_FLAGS) -lcktutil -lm -lz $(CPPUTEST_LIBS)
-
+LIBS:=$(CUDDLIB_FLAGS) -lcktutil -lm -lz
 CXX=g++
 .PHONY: all test clean
 .SUFFIXES: cc c cpp
@@ -51,7 +50,7 @@ AllTests.o: $(TEST)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $^ -o $@
 
 testsuite: $(subst explore.o,,$(objs)) $(TEST:.cpp=.o)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@ 
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(CPPUTEST_FLAGS) $(LDFLAGS) -L${CPPUTEST_HOME}/lib $^ $(LIBS) $(CPPUTEST_LIBS) -o $@ 
 
 test: testsuite
 	./$<
