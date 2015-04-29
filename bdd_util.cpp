@@ -43,19 +43,33 @@ BDD PickOneMintermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars
     auto* E = (Cudd_IsComplement(var) ? Cudd_Not(Cudd_E(var)) : Cudd_E(var));
     // avoid T branch if it leads to complemented 1, avoid the E branch if it leads to complemented 1.
     // Otherwise, choose randomly.
-    if (((!d(gen)) && !(Cudd_IsConstant(T) && (Cudd_IsComplement(T)))) || (Cudd_IsConstant(E) && (Cudd_IsComplement(E))))
+    if (!(Cudd_IsConstant(E) && Cudd_IsComplement(E)) && !(Cudd_IsConstant(T) && Cudd_IsComplement(T)))
     {
-      if (verbose_flag)
-        std::cout << __FILE__ << ": " <<"Chose T\n";
-      next = T;
-      minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
-    } 
-    else 
-    { 
-      if (verbose_flag)
-        std::cout << __FILE__ << ": " <<"Chose E\n";
-      next = E;
-      minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+      if (((!d(gen))))
+      {
+        if (verbose_flag)
+          std::cout << __FILE__ << ": " <<"Chose T\n";
+        next = T;
+        minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+      } 
+      else 
+      { 
+        if (verbose_flag)
+          std::cout << __FILE__ << ": " <<"Chose E\n";
+        next = E;
+        minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+      }
+    }
+    else
+    {
+      if ((Cudd_IsConstant(T) && Cudd_IsComplement(T)))
+      {
+        minterm *= ~manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+        next = E;
+      } else {
+        minterm *= manager.bddVar(manager.ReadInvPerm(Cudd_Regular(var)->index));
+        next = T;
+      }
     }
     q++;
     var = next;
@@ -92,11 +106,15 @@ BDD PickOneMintermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars
     }
   }
   // should probably raise an error condition here or exception
-  if (!(minterm <= root))
+  if (!(minterm <= root) && (minterm != manager.bddZero()))
   {
+    std::cout << "   Root: ";
+    root.PrintCover();
+    std::cout << "Minterm: ";
+    minterm.PrintCover();
     std::cout << "minterm isn't in root!\n";
   }
-  //minterm.PrintCover();
+//  minterm.PrintCover();
   manager.SetStdout(stdout);
   manager.AutodynEnable(CUDD_REORDER_SAME);
   return minterm;
