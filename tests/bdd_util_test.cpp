@@ -69,7 +69,7 @@ TEST(BDD_Util, NotAll)
   BDD prev = vars[1] * ~vars[3];
   BDD result = manager->bddOne();
   CHECK(result.CountMinterm(vars.size()) > 0);
-  for (auto i = 0; i < 500; i++) 
+  for (auto i = 0; i < 5000; i++) 
   {
     auto randomg = PickOneMintermWithDistribution(*manager, result - prev, allvars, distribution<long double>,distmapping);
     CHECK((randomg * prev).CountMinterm(vars.size()) == 0);
@@ -81,11 +81,19 @@ TEST(BDD_Util, InRoot)
 
   BDD prev = vars[1] * ~vars[3];
   BDD result = manager->bddOne();
-  for (auto i = 0; i < 500; i++) 
+  for (auto i = 0; i < 5000; i++) 
   {
     auto randomg = PickOneMintermWithDistribution(*manager, result - prev, allvars, distribution<long double>,distmapping);
+    if (((result-prev)*randomg).CountMinterm(vars.size()) != 1)
+      randomg.PrintCover(); 
     CHECK(((result-prev)*randomg).CountMinterm(vars.size()) == 1);
   }
+}
+
+TEST(BDD_Util, TestZero)
+{
+  auto result = PickOneMintermWithDistribution(*manager, manager->bddZero(), allvars, distribution<long double>,distmapping);
+  CHECK(result == manager->bddZero());
 }
 
 TEST(BDD_Util, BddOne)
