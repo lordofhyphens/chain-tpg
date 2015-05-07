@@ -51,6 +51,12 @@ TEST(CUDD_Ckt, GetNextState)
 
 TEST(CUDD_Ckt, BoolVecToPIs)
 {
+  std::string input {"1101"};
+  auto result = ckt->InputBDD(input);
+  CHECK_EQUAL(ckt->pi_vars[0] * ckt->pi_vars[1] * ~ckt->pi_vars[2] * ckt->pi_vars[3], result);
+}
+TEST(CUDD_Ckt, StrVecToPIs)
+{
   std::vector<bool> test {true, true, false, true};
   auto result = ckt->InputBDD(test);
   CHECK_EQUAL(ckt->pi_vars[0] * ckt->pi_vars[1] * ~ckt->pi_vars[2] * ckt->pi_vars[3], result);

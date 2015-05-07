@@ -25,6 +25,7 @@ class CUDD_Circuit : public Circuit {
     Cudd getManager() { return _manager; }
     std::tuple<std::vector<bool>,BDD> NextState(BDD state, BDD input); 
     BDD InputBDD(std::vector<bool> pis);
+    BDD InputBDD(std::string pis);
   private: 
     Cudd  _manager;
 };

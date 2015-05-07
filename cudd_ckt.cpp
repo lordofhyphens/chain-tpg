@@ -155,6 +155,10 @@ BDD CUDD_Circuit::InputBDD(std::vector<bool> pis)
   }
   return result;
 }
+BDD CUDD_Circuit::InputBDD(std::string pis)
+{
+  return InputBDD(AdaptString(pis));
+}
 
 std::vector<bool> AdaptString(std::string input)
 {
