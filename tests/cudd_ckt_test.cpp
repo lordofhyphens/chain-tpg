@@ -24,6 +24,58 @@ TEST_GROUP(CUDD_Ckt)
 
 };
 
+// mutant adds/subtracts a minterm from the function.
+TEST(CUDD_Ckt, GenerateOneMutant)
+{
+  
+  auto result = ckt->PermuteFunction(ckt->dff[15], 1);
+  CHECK(result != ckt->dff[15]);
+  CHECK(
+    result.CountMinterm(ckt->pi.size()) == ckt->dff[15].CountMinterm(ckt->pi.size()) + 1 || 
+    result.CountMinterm(ckt->pi.size()) == ckt->dff[15].CountMinterm(ckt->pi.size()) - 1
+  );
+}
+TEST(CUDD_Ckt, GenerateOneMutant2Part)
+{
+  
+  auto result = ckt->PermuteFunction(ckt->dff[15], 2);
+  CHECK(result != ckt->dff[15]);
+  CHECK(
+    result.CountMinterm(ckt->pi.size()) == ckt->dff[15].CountMinterm(ckt->pi.size()) + 2 || 
+    result.CountMinterm(ckt->pi.size()) == ckt->dff[15].CountMinterm(ckt->pi.size()) - 2
+  );
+}
+TEST(CUDD_Ckt, GenerateOneMutantBddOne)
+{
+  
+  auto result = ckt->PermuteFunction(ckt->getManager().bddOne(), 1);
+  CHECK(result != ckt->getManager().bddOne());
+  CHECK_EQUAL(ckt->getManager().bddOne().CountMinterm(ckt->pi.size()) - 1, result.CountMinterm(ckt->pi.size()));
+}
+TEST(CUDD_Ckt, GenerateOneMutantBddOne2Off)
+{
+  
+  auto result = ckt->PermuteFunction(ckt->getManager().bddOne(), 2);
+  CHECK(result != ckt->getManager().bddOne());
+  CHECK_EQUAL(ckt->getManager().bddOne().CountMinterm(ckt->pi.size()) - 2, result.CountMinterm(ckt->pi.size()));
+}
+
+TEST(CUDD_Ckt, GenerateOneMutantBddZero)
+{
+  
+  auto result = ckt->PermuteFunction(ckt->getManager().bddZero(), 1);
+  CHECK(result != ckt->getManager().bddZero());
+  CHECK_EQUAL(ckt->getManager().bddZero().CountMinterm(ckt->pi.size()) + 1, result.CountMinterm(ckt->pi.size()));
+}
+
+TEST(CUDD_Ckt, GenerateOneMutantBddZero2Off)
+{
+  
+  auto result = ckt->PermuteFunction(ckt->getManager().bddZero(), 2);
+  CHECK(result != ckt->getManager().bddZero());
+  CHECK_EQUAL(ckt->getManager().bddZero().CountMinterm(ckt->pi.size()) + 2, result.CountMinterm(ckt->pi.size()));
+}
+
 TEST(CUDD_Ckt, S27_Check)
 {
   auto current_state = ~ckt->dff_vars[0] * ~ckt->dff_vars[1] * ~ckt->dff_vars[2];

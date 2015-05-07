@@ -130,6 +130,12 @@ void CUDD_Circuit::form_bdds()
       _manager.AutodynDisable();
     }
 
+// Randomly add/remove diff minterms from the function.
+BDD CUDD_Circuit::PermuteFunction(const BDD& orig, const int diff)
+{
+  BDD result = orig;
+  return result;
+}
 // constrain the BDDs
 std::tuple<std::vector<bool>, BDD> CUDD_Circuit::NextState(BDD state, BDD input)
 {

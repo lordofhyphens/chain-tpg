@@ -26,6 +26,7 @@ class CUDD_Circuit : public Circuit {
     std::tuple<std::vector<bool>,BDD> NextState(BDD state, BDD input); 
     BDD InputBDD(std::vector<bool> pis);
     BDD InputBDD(std::string pis);
+    BDD PermuteFunction(const BDD& orig, const int diff);
   private: 
     Cudd  _manager;
 };
@@ -36,4 +37,5 @@ DFF_DumpDot(
   const std::map<int, BDD>& nodes,
   CUDD_Circuit ckt,
   FILE * fp);
+
 #endif
