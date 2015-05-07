@@ -29,7 +29,7 @@ class CUDD_Circuit : public Circuit {
     Cudd  _manager;
 };
 
-
+std::vector<bool> AdaptString(std::string input);
 void
 DFF_DumpDot(
   const std::map<int, BDD>& nodes,

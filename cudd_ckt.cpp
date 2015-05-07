@@ -155,3 +155,13 @@ BDD CUDD_Circuit::InputBDD(std::vector<bool> pis)
   }
   return result;
 }
+
+std::vector<bool> AdaptString(std::string input)
+{
+  std::vector<bool> result;
+  for (auto bit : input)
+  {
+    result.push_back((bit == '1'));
+  }
+  return result;
+}

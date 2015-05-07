@@ -56,6 +56,15 @@ TEST(CUDD_Ckt, BoolVecToPIs)
   CHECK_EQUAL(ckt->pi_vars[0] * ckt->pi_vars[1] * ~ckt->pi_vars[2] * ckt->pi_vars[3], result);
 }
 
+// probably should be its own harness, but oh well.
+TEST(CUDD_Ckt, StringToBoolVec)
+{
+  std::string input {"1101"};
+  std::vector<bool> check {true, true, false, true};
+  std::vector<bool> result = AdaptString(input);
+  CHECK(check == result);
+}
+
 TEST(CUDD_Ckt, NonZeroNodeCounts)
 {
   CHECK(ckt->size() > 0);
