@@ -44,7 +44,6 @@ TEST(CUDD_Ckt, GetNextState)
   auto current_input = ckt->pi_vars[0] * ckt->pi_vars[1] * ~ckt->pi_vars[2] * ckt->pi_vars[3];
   
   auto result = ckt->NextState(current_state, current_input);
-  // result needs to be a tuple of next-state BDD and a bool vector for the POs?
   CHECK_EQUAL(true, std::get<0>(result)[0]); 
   CHECK_EQUAL(ckt->dff_vars[0]*~ckt->dff_vars[1]*ckt->dff_vars[2], std::get<1>(result));
 }
