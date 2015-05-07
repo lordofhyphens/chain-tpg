@@ -6,10 +6,9 @@
 #include <map>
 #include "cudd.h"
 #include "cuddObj.hh"
+#include <tuple>
 extern int verbose_flag;
 class CUDD_Circuit : public Circuit { 
-  private: 
-    Cudd  _manager;
   public:
     std::map<int, BDD> po;
     std::map<int, BDD> dff; // internals flipflops
@@ -24,6 +23,10 @@ class CUDD_Circuit : public Circuit {
     };
     void form_bdds();
     Cudd getManager() { return _manager; }
+    std::tuple<std::vector<bool>,BDD> NextState(BDD state, BDD input); 
+    BDD InputBDD(std::vector<bool> pis);
+  private: 
+    Cudd  _manager;
 };
 
 

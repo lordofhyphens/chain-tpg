@@ -7,12 +7,15 @@ TEST_GROUP(CUDD_Ckt)
   // test our bench reader with s27.bench initially, we can (probably) take 
   // other formats later.
   CUDD_Circuit* ckt;
+  Cudd manager;
 
   void setup()
   {
     ckt = new CUDD_Circuit();
     ckt->read_bench("tests/s27.bench");
+    // DFF gates are 15, 27, 28
     ckt->form_bdds();
+    manager = ckt->getManager();
   }
   void teardown()
   {
@@ -20,6 +23,38 @@ TEST_GROUP(CUDD_Ckt)
   }
 
 };
+
+TEST(CUDD_Ckt, S27_Check)
+{
+  auto current_state = ~ckt->dff_vars[0] * ~ckt->dff_vars[1] * ~ckt->dff_vars[2];
+  auto current_input = ckt->pi_vars[0] * ckt->pi_vars[1] * ~ckt->pi_vars[2] * ckt->pi_vars[3];
+
+  auto testin = current_state*current_input;
+  // Sanity check against S27
+  CHECK_EQUAL(manager.bddOne(), ckt->dff[15].Constrain(testin));
+  CHECK_EQUAL(manager.bddZero(), ckt->dff[27].Constrain(testin));
+  CHECK_EQUAL(manager.bddOne(),ckt->dff[28].Constrain(testin));
+  // Check POs
+  CHECK_EQUAL(manager.bddOne(),ckt->po[26].Constrain(testin));
+}
+
+TEST(CUDD_Ckt, GetNextState)
+{
+  auto current_state = ~ckt->dff_vars[0] * ~ckt->dff_vars[1] * ~ckt->dff_vars[2];
+  auto current_input = ckt->pi_vars[0] * ckt->pi_vars[1] * ~ckt->pi_vars[2] * ckt->pi_vars[3];
+  
+  auto result = ckt->NextState(current_state, current_input);
+  // result needs to be a tuple of next-state BDD and a bool vector for the POs?
+  CHECK_EQUAL(true, std::get<0>(result)[0]); 
+  CHECK_EQUAL(ckt->dff_vars[0]*~ckt->dff_vars[1]*ckt->dff_vars[2], std::get<1>(result));
+}
+
+TEST(CUDD_Ckt, BoolVecToPIs)
+{
+  std::vector<bool> test {true, true, false, true};
+  auto result = ckt->InputBDD(test);
+  CHECK_EQUAL(ckt->pi_vars[0] * ckt->pi_vars[1] * ~ckt->pi_vars[2] * ckt->pi_vars[3], result);
+}
 
 TEST(CUDD_Ckt, NonZeroNodeCounts)
 {

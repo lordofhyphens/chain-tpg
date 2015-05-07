@@ -129,3 +129,29 @@ void CUDD_Circuit::form_bdds()
       _manager.AutodynDisable();
     }
 
+// constrain the BDDs
+std::tuple<std::vector<bool>, BDD> CUDD_Circuit::NextState(BDD state, BDD input)
+{
+  auto dffresult = _manager.bddOne();
+  std::vector<bool> poresult;
+  for (auto &node : dff) 
+  {
+    dffresult *= (node.second.Constrain(state*input) == _manager.bddOne() ?  _manager.bddVar(dff_pair[node.first]) : ~(_manager.bddVar(dff_pair[node.first])));
+  }
+  for (auto &node : po)
+  {
+    poresult.push_back(node.second.Constrain(state*input) == _manager.bddOne());
+  }
+  return std::tuple<std::vector<bool>, BDD>{poresult, dffresult};
+}
+
+BDD CUDD_Circuit::InputBDD(std::vector<bool> pis)
+{
+  auto result = _manager.bddOne();
+  auto j = 0;
+  for (auto &pi : pi_vars) 
+  {
+    result *= (pis[j++] ? _manager.bddVar(pi.getNode()->index) : ~(_manager.bddVar(pi.getNode()->index)));
+  }
+  return result;
+}
