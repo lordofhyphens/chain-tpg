@@ -33,9 +33,9 @@ DFF_DumpDot(
 void CUDD_Circuit::form_bdds()
     {
       _manager.AutodynEnable(CUDD_REORDER_SIFT);
-      for (std::vector<NODEC>::iterator gate = graph->begin(); gate < graph->end(); gate++)
+      for (auto gate = graph->begin(); gate < graph->end(); gate++)
       {
-        const int pos = gate - graph->begin();
+        const auto pos = gate - graph->begin();
         BDD result;
         if (verbose_flag)
           std::cerr << __FILE__ << ": " <<"Working on gate " << pos << ", " << gate->name<< "\n";
@@ -54,7 +54,7 @@ void CUDD_Circuit::form_bdds()
               Cudd_bddSetPiVar(_manager.getManager(), pos);
               pi_vars.push_back(result);
             }
-            pi[pos] = result;
+            pi[pos] = std::move(result);
             break;
           case NOT:
             result = !net[gate->fin[0].second];
@@ -97,13 +97,9 @@ void CUDD_Circuit::form_bdds()
             }
 
         }
-        net[pos] = result;
 
-        if (gate->typ == INPT) {
-          pi[pos] = result;
-        }
         if (gate->typ == DFF_IN) {
-          dff[pos] = result;
+          dff[pos] = std::move(result);
           if (verbose_flag)
             std::cerr << __FILE__ << ": " <<"looking for matching var for " << gate->name << ", " << gate->name.substr(0,gate->name.size()-3).c_str() << "\n";
           std::string tgt = gate->name.substr(0,gate->name.size()-3);
@@ -120,8 +116,13 @@ void CUDD_Circuit::form_bdds()
             }
           }
         }
-        if (gate->po && gate->typ != DFF_IN)
-          po[pos] = result;
+        else 
+        {
+          if (gate->po)
+            po[pos] = std::move(result);
+          else 
+            net[pos] = std::move(result);
+        }
       }
       // Don't need the intermediate gate node BDDs, so clear them so 
       // garbage collection can happen.

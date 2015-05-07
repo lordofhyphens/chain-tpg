@@ -41,8 +41,10 @@ BDD GetPI(Cudd manager, std::map<int,BDD> functions, std::map<int, BDD> vars, BD
 std::vector<BDD> getVector(Cudd manager, std::map<int, BDD> map)
 {
   std::vector<BDD> result;
-  for (map_iter iter = map.begin(); iter != map.end(); iter++)
-    result.push_back(manager.bddVar(iter->first));
+  for (auto& i : map) 
+  {
+    result.push_back(manager.bddVar(i.first));
+  }
   return result;
 }
 
