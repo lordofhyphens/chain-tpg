@@ -16,6 +16,7 @@
 #include <cstring>
 #include <string>
 #include <cudd.h>
+#include <dddmp.h>
 #include <limits>
 #include <fstream>
 #include <getopt.h>
@@ -409,16 +410,44 @@ int main(int argc, char* const argv[])
     std::cerr << __FILE__ << ": " <<"Printing ckt.\n";
     ckt.print();
   }
+  ckt.form_bdds();
   if (do_export_flag)
   {
     std::stringstream temp;
-    temp << infile.c_str() << ".level";
+    temp << infile.c_str() << ".blif";
     std::cerr << __FILE__ << ": " <<"Writing levelized ckt to " << temp.str() << "\n";
-    ckt.save(temp.str().c_str());
+    DdNode** outfuncs = new DdNode*[ckt.all_vars.size()];
+    char** outnames = new char*[ckt.all_vars.size()];
+    int y = 0;
+    char** innames = new char*[ckt.all_vars.size()];
+    int z = 0;
+    for (auto &f : ckt.pi)
+    {
+      innames[y] = (char*)ckt.at(f.first).name.c_str();
+      y++;
+    }
+    for (auto &f : ckt.dff) {
+      outfuncs[z] = f.second.getNode();
+      outnames[z] = (char*)ckt.at(f.first).name.c_str();
+      f.second.PrintCover();
+      z++;
+    }
+    for (auto &f : ckt.po) {
+      outfuncs[z] = f.second.getNode();
+      outnames[z] = (char*)ckt.at(f.first).name.c_str();
+      f.second.PrintCover();
+      z++;
+    }
+    std::cerr << "Opening file\n";
+    FILE* fp = fopen(temp.str().c_str(),"w");
+    Dddmp_cuddBddArrayStoreBlif(ckt.getManager().getManager(), z, outfuncs, innames, outnames, (char*)infile.c_str(), "test2" , fp);
+
+    // ckt.save(temp.str().c_str());
+    fclose(fp);
+    delete innames, outnames, outfuncs;
     exit(0);
   }
 
-  ckt.form_bdds();
   if (bdd_export_flag)
   {
     std::stringstream temp;
