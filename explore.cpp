@@ -15,7 +15,7 @@
 #include <deque>
 #include <cstring>
 #include <string>
-#include "cudd.h"
+#include <cudd.h>
 #include <limits>
 #include <fstream>
 #include <getopt.h>
