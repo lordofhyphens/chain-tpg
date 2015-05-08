@@ -12,6 +12,7 @@ TEST_GROUP(CUDD_Ckt)
   void setup()
   {
     ckt = new CUDD_Circuit();
+    Cudd_Srandom(0);
     ckt->read_bench("tests/s27.bench");
     // DFF gates are 15, 27, 28
     ckt->form_bdds();
@@ -23,7 +24,6 @@ TEST_GROUP(CUDD_Ckt)
   }
 
 };
-
 // mutant adds/subtracts a minterm from the function.
 TEST(CUDD_Ckt, GenerateOneMutant)
 {
@@ -35,6 +35,7 @@ TEST(CUDD_Ckt, GenerateOneMutant)
     result.CountMinterm(ckt->pi.size()) == ckt->dff[15].CountMinterm(ckt->pi.size()) - 1
   );
 }
+
 TEST(CUDD_Ckt, GenerateOneMutant2Part)
 {
   
@@ -45,6 +46,7 @@ TEST(CUDD_Ckt, GenerateOneMutant2Part)
     result.CountMinterm(ckt->pi.size()) == ckt->dff[15].CountMinterm(ckt->pi.size()) - 2
   );
 }
+
 TEST(CUDD_Ckt, GenerateOneMutantBddOne)
 {
   
@@ -64,6 +66,7 @@ TEST(CUDD_Ckt, GenerateOneMutantBddZero)
 {
   
   auto result = ckt->PermuteFunction(ckt->getManager().bddZero(), 1);
+  result.PrintCover();
   CHECK(result != ckt->getManager().bddZero());
   CHECK_EQUAL(ckt->getManager().bddZero().CountMinterm(ckt->pi.size()) + 1, result.CountMinterm(ckt->pi.size()));
 }
@@ -75,7 +78,6 @@ TEST(CUDD_Ckt, GenerateOneMutantBddZero2Off)
   CHECK(result != ckt->getManager().bddZero());
   CHECK_EQUAL(ckt->getManager().bddZero().CountMinterm(ckt->pi.size()) + 2, result.CountMinterm(ckt->pi.size()));
 }
-
 TEST(CUDD_Ckt, S27_Check)
 {
   auto current_state = ~ckt->dff_vars[0] * ~ckt->dff_vars[1] * ~ckt->dff_vars[2];

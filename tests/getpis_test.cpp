@@ -25,6 +25,7 @@ TEST_GROUP(GetPIs)
     // two of the inputs replaced with copies
     // of the outputs
     //
+    Cudd_Srandom(0);
     manager = new Cudd();
     vars[0] = BDD(manager->bddVar(0)); // a
     pis[0] = BDD(manager->bddVar(0)); // a
@@ -117,6 +118,7 @@ TEST(GetPIs, BDDMintermToSet)
   BDD next = vars[1] * vars[3];
   BDD checkval = vars[0] * vars[2] * vars[3];
   BDD result = GetPI(*manager, funcs, vars, prev,next);
+  result.PrintCover();
   BDD result_single = result.PickOneMinterm(getVector(*manager,pis));
   
   std::map<int, int> single_flat = getInputsFromMinterm(*manager, result_single);
