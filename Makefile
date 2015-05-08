@@ -1,6 +1,6 @@
 # CUDD compilation
 CUDD:=./cudd
-CUDDLIBS=obj cudd epd mtr util st 
+CUDDLIBS=obj dddmp cudd epd mtr util st 
 CUDDLIB_SEARCH=$(foreach libs,$(CUDDLIBS),-L$(CUDD)/$(libs)) 
 CUDDLIB_FLAGS=$(foreach libs,$(CUDDLIBS),-l$(libs))
 CUDDFLAGS:=-I$(CUDD)/include
