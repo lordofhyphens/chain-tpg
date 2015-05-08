@@ -48,11 +48,13 @@ void CUDD_Circuit::form_bdds()
             {
               Cudd_bddSetNsVar(_manager.getManager(), pos);
               dff_vars.push_back(result);
+              all_vars.push_back(result);
             }
             else
             {
               Cudd_bddSetPiVar(_manager.getManager(), pos);
               pi_vars.push_back(result);
+              all_vars.push_back(result);
             }
             pi[pos] = std::move(result);
             break;
@@ -134,6 +136,40 @@ void CUDD_Circuit::form_bdds()
 BDD CUDD_Circuit::PermuteFunction(const BDD& orig, const int diff)
 {
   BDD result = orig;
+  // remove enough minterms to get the distance
+  if (result == _manager.bddOne())
+  {
+    for (int i = 0; i < diff; i++)
+    {
+      result -= result.PickOneMinterm(all_vars);
+    }
+  } 
+  else if (result == _manager.bddZero())
+  {
+    for (int i = 0; i < diff; i++)
+    {
+      result += (_manager.bddOne() - result).PickOneMinterm(all_vars);
+    }
+  }
+  else 
+  {
+    std::default_random_engine generator;
+    std::bernoulli_distribution distribution(0.5);
+    BDD add = _manager.bddZero();
+    BDD rem = _manager.bddZero();
+    for (int i = 0; i < diff; i++) {
+      if (distribution(generator))
+      {
+        add += (_manager.bddOne() - (add +result)).PickOneMinterm(all_vars);
+      }
+      else
+      {
+        rem += (result-rem).PickOneMinterm(all_vars);
+      }
+    }
+    result += add;
+    result -= rem;
+  }
   return result;
 }
 // constrain the BDDs
