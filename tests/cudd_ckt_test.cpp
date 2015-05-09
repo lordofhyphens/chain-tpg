@@ -142,3 +142,10 @@ TEST(CUDD_Ckt, S27_PI_DFFCountCorrect)
 {
   CHECK_EQUAL(7, ckt->pi.size());
 }
+
+TEST(CUDD_Ckt, LoadBlif)
+{
+  ckt->clear();
+  ckt->load_blif("tests/s27.bench.blif");
+  CHECK_EQUAL(68, ckt->size());
+}

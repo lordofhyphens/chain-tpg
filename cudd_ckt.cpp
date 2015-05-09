@@ -1,6 +1,7 @@
 #include "cudd_ckt.h"
 #include "cuddObj.hh"
 #include <cstring>
+#include <string>
 
 void
 DFF_DumpDot(
@@ -211,4 +212,221 @@ std::vector<bool> AdaptString(std::string input)
     result.push_back((bit == '1'));
   }
   return result;
+}
+
+std::vector<std::string> delimited_string(const std::string& line,  const std::string& separator, size_t start) {
+  auto pos = start;
+  std::vector<std::string> result;
+  while (pos < line.size())
+  {
+    auto gname = line.substr(pos, line.find(separator, pos+1)-pos);
+    gname.erase(std::remove_if(gname.begin(), gname.end(),
+    [&separator](char &c) -> bool { 
+      return c == *(separator.c_str());
+    }),gname.end());
+    pos = line.find(separator, pos+1);
+    result.push_back(gname);
+  }
+  return result;
+}
+
+void CUDD_Circuit::load_blif(const char* filename) 
+{
+  // parse a simplistic BLIF file. We assume that inputs, outputs are
+  // specified. We ignore model and that the file is self-sufficient (no
+  // submodels for now)
+
+  // BLIF lines starting with # are ignored until linebreak. 
+  std::ifstream file(filename);
+  bool had_minterm = false;
+  std::vector<std::string> minterm_list;
+  std::string product_list;
+  int product_count = 0;
+  std::string outname = "";
+  for( auto& line: lines(file) )
+  {
+    // check for a leading #
+    if (line.find("#", 0) == 0) continue;
+    if (line.find(".model", 0) == 0) 
+    {
+      auto pos = line.find(" ", 0);
+      std::cerr << line.find(" ",0) << "\n";
+      name = line.substr(pos);
+      continue;
+    }
+    if (line.find(".end", 0) == 0) 
+    {
+      if (had_minterm)
+      {
+        auto it = std::find(graph->begin(), graph->end(), outname);
+        // create a gate
+        if (product_count == 1)
+        {
+          // just change the name of the last gate inserted.
+          graph->back().name = outname;
+        }
+        else
+        {
+          graph->push_back(NODEC(outname, OR, product_count,product_list));
+        }
+        if (it != graph->end())
+        {
+          graph->back().name = it->name;
+          *it = graph->back();
+          it->po = true;
+          graph->pop_back();
+        }
+        had_minterm = false;
+      }
+      continue;
+    }
+    // if .inputs is encountered, add an input node for every name.
+    if (line.find(".inputs", 0) == 0)
+    {
+      // split the rest of the line
+      auto pos = line.find(" ", line.find(".inputs",0));
+      for (auto &gname : delimited_string(line, " ", pos)) {
+        graph->push_back(NODEC(gname, INPT));
+        graph->push_back(NODEC(gname+"_NOT", NOT, 1, gname));
+      }
+
+    }
+    // if .names is encountered, 
+    if (line.find(".outputs", 0) == 0)
+    {
+      // split the rest of the line
+      auto pos = line.find(" ", line.find(".outputs",0));
+      for (auto &gname : delimited_string(line, " ", pos)) {
+        NODEC tmp(gname, UNKN);
+        tmp.po = true;
+        graph->push_back(tmp);
+      }
+      continue;
+    }
+    if (line.find(".names", 0) == 0)
+    {
+      if (had_minterm)
+      {
+        auto it = std::find(graph->begin(), graph->end(), outname);
+        if (product_count == 1)
+        {
+          if (it != graph->end())
+          {
+            // if this is the case, we need to copy the back node to the 
+            // correct spot and get rid of the "extra" node
+            if (it->po) {
+              graph->back().name = it->name;
+              *it= graph->back();
+              it->po = true;
+              graph->pop_back();
+            }
+          }
+          else {
+            graph->back().name = outname;
+            graph->push_back(NODEC(outname+"_NOT", NOT, 1, outname));
+          }
+        }
+        else
+        {
+          // create the sum of products gate and its inverse.
+          if (it != graph->end())
+          {
+            // don't need to make its inverse gate
+            it->typ = OR;
+            it->finlist = product_list;
+            it->nfo = 0;
+            it->nfi = product_count;
+          } else {
+            product_list = product_list.substr(0,product_list.find_last_of(","));
+            graph->push_back(NODEC(outname, OR, product_count,product_list));
+            graph->push_back(NODEC(outname+"_NOT", NOT, 1, outname));
+          }
+        }
+      }
+      product_list = "";
+      product_count = 0;
+      minterm_list.clear();
+      auto pos = line.find(" ", line.find(".names",0));
+      for (auto &gname : delimited_string(line, " ", pos))
+      {
+        minterm_list.push_back(gname);
+      }
+      outname = minterm_list.back();
+      minterm_list.pop_back();
+      had_minterm = true;
+      product_count = 0;
+      continue;
+    }
+    // if the length of the line is 1 character and just contains "1", then
+    // the output is constant 1.
+    std::cerr << line.size() << "\n";
+    if (line.size() == 1)
+    {
+      graph->push_back(NODEC(outname, CONST1));
+      graph->push_back(NODEC(outname+"_NOT", NOT, 1, outname));
+      had_minterm = false;
+      continue;
+    }
+    bool end_minterm = false;
+    int minterm_id = 0;
+    std::string finlist = "";
+    for (auto &c : line)
+    {
+      if (end_minterm) continue;
+      switch(c)
+      {
+        case '1': 
+          finlist += minterm_list[minterm_id];
+          finlist += ",";
+          minterm_id++;
+          break;
+        case '0':
+          finlist += minterm_list[minterm_id] + "_NOT";
+          finlist += ",";
+          minterm_id++;
+          // a little more complex here, need to find the NOT version of this gate.
+          break;
+        case '-': break;
+        default: end_minterm = true; break;
+      }
+    }
+
+    finlist = finlist.substr(0,finlist.find_last_of(","));
+    if (minterm_id == 1)
+      graph->push_back(NODEC(outname+"_"+std::to_string(product_count),BUFF,minterm_id, finlist));
+    else
+    if (minterm_id > 0)
+      graph->push_back(NODEC(outname+"_"+std::to_string(product_count),AND,minterm_id, finlist));
+    // make a new sub-gate for the product, add it to the product list
+    product_list += outname+"_"+std::to_string(product_count)+",";
+    product_count++;
+  }
+  // post-processing: do check on all outputs. Anything that has a _in suffix probably has a corresponding 
+  // name in the input list. If there is one, change its type to DFF and the corresponding input to DFF_IN
+  relabel_fin();
+  auto it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
+    return (g.po == false && g.nfo == 0);
+  });
+  relabel_fin();
+  graph->resize(it - graph->begin());
+  annotate(graph);
+  levelize();
+  std::sort(graph->begin(), graph->end());
+  annotate(graph);
+}
+
+void CUDD_Circuit::relabel_fin() {
+  int z = 0;
+  for (auto &node : *graph)
+  {
+      for (auto &gname : delimited_string(node.finlist, ",", 0)) 
+      {
+        auto it = std::find(graph->begin(), graph->end(), gname);
+        if (it == graph->end()) continue;
+        node.fin.push_back(std::pair<std::string, uint32_t> {gname, std::distance(graph->begin(),it)});
+        it->fot.push_back(std::pair<std::string, uint32_t> {node.name, z});
+        it->nfo++;
+      }
+      z++;
+  }
 }

@@ -1,6 +1,7 @@
 #ifndef CUDD_CKT_H
 #define CUDD_CKT_H
 #include "util/ckt.h"
+#include "line_iterator.h"
 #include <vector>
 #include <algorithm>
 #include <map>
@@ -28,6 +29,10 @@ class CUDD_Circuit : public Circuit {
     BDD InputBDD(std::vector<bool> pis);
     BDD InputBDD(std::string pis);
     BDD PermuteFunction(const BDD& orig, const int diff);
+    void save_blif(const char* filename);
+    void load_blif(const char* filename);
+    void relabel_fin();
+    void relabel_fot();
   private: 
     Cudd  _manager;
 };
@@ -39,4 +44,6 @@ DFF_DumpDot(
   CUDD_Circuit ckt,
   FILE * fp);
 
+
+// move this to a separate header
 #endif
