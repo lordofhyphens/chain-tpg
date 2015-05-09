@@ -297,6 +297,7 @@ int main(int argc, char* const argv[])
   srand(time(NULL));
   int do_export_flag = 0;
   int bdd_export_flag = 0;
+  int mutant_count = 10;
   std::vector<std::map<unsigned int, bool> > inputs;
   std::string infile(argv[1]);
   Cudd_Srandom(time(NULL));
@@ -327,6 +328,7 @@ int main(int argc, char* const argv[])
       {"help",     no_argument,       0, 'h'},
       {"bench",     required_argument,       0, 'b'},
       {"time",     required_argument,       0, 't'},
+      {"mutants",     required_argument,       0, 'm'},
       {"length",     required_argument,       0, 'l'},
       {0, 0}
     };
@@ -352,6 +354,10 @@ int main(int argc, char* const argv[])
       case 'r':
         max_length_str = std::string(optarg);
         allrand = atoi(max_time_str.c_str());
+        break;
+      case 'm':
+        max_length_str = std::string(optarg);
+        mutant_count = std::stoi(max_length_str);
         break;
       case 'b':
         infile = std::string(optarg);
@@ -400,7 +406,12 @@ int main(int argc, char* const argv[])
     std::clog << "presorted benchmark " << infile << " ";
     ckt.load(infile.c_str());
   } 
-  else 
+  else if (infile.find("blif") != std::string::npos) 
+  {
+    std::clog << infile << "\n";
+    ckt.load_blif(infile.c_str());
+  }
+  else
   {
     std::clog << infile << "\n";
     ckt.read_bench(infile.c_str());
@@ -411,49 +422,94 @@ int main(int argc, char* const argv[])
     ckt.print();
   }
   ckt.form_bdds();
-  if (do_export_flag)
+
+  if (bdd_export_flag)
   {
-    std::stringstream temp;
-    temp << infile.c_str() << ".blif";
-    std::cerr << __FILE__ << ": " <<"Writing levelized ckt to " << temp.str() << "\n";
+    std::cerr << "Generating " << mutant_count << " mutants." << "\n";
+    std::vector<BDD>* mutants = new std::vector<BDD>[ckt.all_vars.size()];
+    bool abort = false;
+    int total_mutants = 0;
+    while (total_mutants< mutant_count && !abort)
+    {
+      int j = 0;
+      for (auto &f : ckt.dff) 
+      {
+        auto last = mutants[j].size(); 
+        mutants[j].push_back(ckt.PermuteFunction(f.second,1));
+        std::sort(mutants[j].begin(), mutants[j].end());
+        auto it = std::unique(mutants[j].begin(), mutants[j].end());
+        mutants[j].resize(std::distance(mutants[j].begin(), it));
+        if (last < mutants[j].size())
+          total_mutants++;
+        j++;
+      }
+      for (auto &f : ckt.po) 
+      {
+        auto last = mutants[j].size(); 
+        mutants[j].push_back(ckt.PermuteFunction(f.second,1));
+        std::sort(mutants[j].begin(), mutants[j].end());
+        auto it = std::unique(mutants[j].begin(), mutants[j].end());
+        mutants[j].resize(std::distance(mutants[j].begin(), it));
+        if (last < mutants[j].size())
+          total_mutants++;
+        j++;
+      }
+      if (total_mutants % 100) 
+      {
+        std::cerr << "Finished generating " << total_mutants << " mutant functions. \n";
+      }
+      
+    }
+    std::cerr << "Formed all mutants, dumping to files." << "\n";
+
+    int victim = rand() %ckt.all_vars.size();
     DdNode** outfuncs = new DdNode*[ckt.all_vars.size()];
+
     char** outnames = new char*[ckt.all_vars.size()];
-    int y = 0;
     char** innames = new char*[ckt.all_vars.size()];
-    int z = 0;
+    int y = 0;
     for (auto &f : ckt.pi)
     {
       innames[y] = (char*)ckt.at(f.first).name.c_str();
       y++;
+    }   
+    for (int j = 0; j < mutant_count; j++) {
+      std::string temp;
+      int z = 0;
+      for (auto &f : ckt.dff) {
+        if (z == victim) 
+        {
+          outfuncs[z] = mutants[z].back().getNode();
+          mutants[z].pop_back();
+          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
+        }
+        else 
+        {
+          outfuncs[z] = f.second.getNode();
+          outnames[z] = (char*)ckt.at(f.first).name.c_str();
+        }
+        z++;
+      }
+      for (auto &f : ckt.po) {
+        if (z == victim) 
+        {
+          outfuncs[z] = mutants[z].back().getNode();
+          mutants[z].pop_back();
+          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
+        }
+        else 
+        {
+          outfuncs[z] = f.second.getNode();
+          outnames[z] = (char*)ckt.at(f.first).name.c_str();
+        }
+        z++;
+      }
+      FILE* fp = fopen((infile + "-"+std::to_string(j)+".blif").c_str(),"w");
+      Dddmp_cuddBddArrayStoreBlif(ckt.getManager().getManager(), z, outfuncs, innames, outnames, (char*)ckt.getName().c_str(), "test2" , fp);
+      fclose(fp);
     }
-    for (auto &f : ckt.dff) {
-      outfuncs[z] = f.second.getNode();
-      outnames[z] = (char*)ckt.at(f.first).name.c_str();
-      f.second.PrintCover();
-      z++;
-    }
-    for (auto &f : ckt.po) {
-      outfuncs[z] = f.second.getNode();
-      outnames[z] = (char*)ckt.at(f.first).name.c_str();
-      f.second.PrintCover();
-      z++;
-    }
-    std::cerr << "Opening file\n";
-    FILE* fp = fopen(temp.str().c_str(),"w");
-    Dddmp_cuddBddArrayStoreBlif(ckt.getManager().getManager(), z, outfuncs, innames, outnames, (char*)infile.c_str(), "test2" , fp);
-
-    // ckt.save(temp.str().c_str());
-    fclose(fp);
-    delete innames, outnames, outfuncs;
     exit(0);
-  }
 
-  if (bdd_export_flag)
-  {
-    std::stringstream temp;
-    temp << infile.c_str() << ".bdd";
-    std::clog << "Writing BDDs for all BDDs." << "\n";
-    exit(0);
   }
 
   std::cerr << __FILE__ << ": " <<"Successfully formed BDDs for " << infile << "\n";
@@ -490,69 +546,7 @@ int main(int argc, char* const argv[])
   BDD visited = next;
   BDD deadends = ckt.getManager().bddZero();
   next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
-  if (partition_flag)
-  {
-    BDD live = ckt.getManager().bddZero();
-    unsigned long int dead = 0, other = 0;
-    while ( (ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0 ) 
-    { 
-      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 )
-      {
-        deadends += next;
-        dead++;
-        if (verbose_flag)
-          std::cerr << __FILE__ << ": " <<"State has no next-states, " << dead << ", " << other << "\n";
-      } 
-      else 
-      {
-        live += next;
-        other++;
-        if (verbose_flag)
-          std::cerr << __FILE__ << ": " <<"State has next-states, " << dead << ", " << other << "\n";
-      }
-      if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
-        next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
-    }
-    std::cout << "Deadend states: " << deadends.CountMinterm(ckt.dff.size()) << ", " << " Other states: " << live.CountMinterm(ckt.dff.size()) << "\n";
-    exit(0);
-  }
-  if (simulate_flag)
-  {
-    BDD live = ckt.getManager().bddZero();
-    BDD deadends = ckt.getManager().bddZero();
-    while ( (ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0 ) 
-    { 
 
-      if ( (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 )
-      {
-        // confirm that this indeed only has itself (or nothing) as a next-state
-        BDD sim_results = simulate(ckt, next);
-        if (sim_results == next)
-        {
-          std::cerr << __FILE__ << ": " <<"Loops back to itself only." << "\n";
-        }
-        else if(sim_results == ckt.getManager().bddZero())
-        {
-          //std::cerr << __FILE__ << ": " <<"Deadend." << "\n";
-        } 
-        else
-        {
-          std::cout << "Current state: \n" ;
-          next.PrintCover();
-          std::cout << "results: \n";
-          sim_results.PrintCover();
-        }
-        deadends += next;
-      } 
-      else 
-      {
-        live += next;
-      }
-      if ((ckt.getManager().bddOne() - deadends - live).CountMinterm(ckt.dff.size()) > 0)
-        next = (ckt.getManager().bddOne() - deadends - live).PickOneMinterm(ckt.dff_vars);
-    }
-    exit(0);
-  }
   in_loop = true;
   for_each(ckt.dff_vars.begin(), ckt.dff_vars.end(), [&] (const BDD& v) {
       int z = Cudd_Regular(v.getNode())->index;
@@ -561,7 +555,7 @@ int main(int argc, char* const argv[])
   if (allrand > 0) {
     for (auto i = 0; i < allrand; i++) {
       BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
-      next = PickOneMintermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distribution<long double>, distmapping);
+      next = next_img.PickOneMinterm(ckt.dff_vars);
       chain.push(next);
     }
     quit = true;
@@ -664,14 +658,14 @@ int main(int argc, char* const argv[])
                 next = ckt.getManager().bddOne();
                 continue;
               } 
-              next = PickOneMintermWithDistribution(ckt.getManager(), (possible-visited), ckt.dff_vars, distribution<long double>, distmapping);
+              next = (possible-visited).PickOneMinterm(ckt.dff_vars);
               visited += next;
               allterm -= next;
               chain.push_empty(next);
               continue;
             }
 
-            next = PickOneMintermWithDistribution(ckt.getManager(), (item->second - visited), ckt.dff_vars, distribution<long double>, distmapping);
+            next = (item->second - visited).PickOneMinterm(ckt.dff_vars);
             visited += next;
             if  ((item->second - visited).CountMinterm(ckt.dff.size()) == 1)
               chain_images.erase(next.getNode());
@@ -692,7 +686,7 @@ int main(int argc, char* const argv[])
         }
         else 
         {
-          next = PickOneMintermWithDistribution(ckt.getManager(), next_img, ckt.dff_vars, distribution<long double>, distmapping);
+          next = next_img.PickOneMinterm(ckt.dff_vars);
           allterm -= next;
           all_backtracks++;
           backtrack = (backtrack > 0 ? backtrack -1 : 0);
@@ -732,7 +726,7 @@ int main(int argc, char* const argv[])
       {
         chain_images[next.getNode()] = next_img;
       }
-      next = PickOneMintermWithDistribution(ckt.getManager(), (next_img - visited), ckt.dff_vars, distribution<long double>, distmapping);
+      next = (next_img - visited).PickOneMinterm(ckt.dff_vars);
 
       visited += next;
       chain.push(next);

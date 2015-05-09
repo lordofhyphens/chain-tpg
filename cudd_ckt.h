@@ -19,11 +19,23 @@ class CUDD_Circuit : public Circuit {
     std::vector<BDD> dff_vars;
     std::vector<BDD> all_vars;
     std::map<int, int> dff_pair; // DFF Variables
+    void clear() {
+      Circuit::clear();
+      po.clear();
+      dff.clear();
+      net.clear();
+      pi.clear();
+      pi_vars.clear();
+      dff_vars.clear();
+      all_vars.clear();
+      dff_pair.clear();
+    }
     CUDD_Circuit(Cudd manager) : Circuit(),  _manager(manager) { };
     CUDD_Circuit() : Circuit() { 
       _manager = Cudd(0,0);
     };
     void form_bdds();
+    inline std::string getName() { return name;}
     Cudd getManager() { return _manager; }
     std::tuple<std::vector<bool>,BDD> NextState(BDD state, BDD input); 
     BDD InputBDD(std::vector<bool> pis);

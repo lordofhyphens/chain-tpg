@@ -62,11 +62,15 @@ void CUDD_Circuit::form_bdds()
           case NOT:
             result = !net[gate->fin[0].second];
             break;
+          case CONST1:
+            result = BDD(_manager.bddOne());
+            break;
           case FROM:
+          case BUFF:
             result = net[gate->fin[0].second];
             break;
           default:
-            fin_t::iterator fin = gate->fin.begin();
+            auto fin = gate->fin.begin();
             if (verbose_flag)
               std::cerr << __FILE__ << ": " <<"\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
             result = net[fin->second];

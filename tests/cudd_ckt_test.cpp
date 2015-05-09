@@ -66,7 +66,6 @@ TEST(CUDD_Ckt, GenerateOneMutantBddZero)
 {
   
   auto result = ckt->PermuteFunction(ckt->getManager().bddZero(), 1);
-  result.PrintCover();
   CHECK(result != ckt->getManager().bddZero());
   CHECK_EQUAL(ckt->getManager().bddZero().CountMinterm(ckt->pi.size()) + 1, result.CountMinterm(ckt->pi.size()));
 }
@@ -145,8 +144,21 @@ TEST(CUDD_Ckt, S27_PI_DFFCountCorrect)
 
 TEST(CUDD_Ckt, LoadBlif)
 {
+  ckt->form_bdds();
+  auto pocache = ckt->po;
+  auto dffcache = ckt->dff;
+  auto picache = ckt->pi;
+  auto pi_varscache = ckt->pi_vars;
+  auto dff_varscache = ckt->dff_vars;
+  auto all_varscache = ckt->all_vars;
+  auto dff_paircache = ckt->dff_pair;
+
   ckt->clear();
   ckt->load_blif("tests/s27.bench.blif");
-  ckt->print();
+  ckt->form_bdds();
   CHECK_EQUAL(68, ckt->size());
+  for (auto &pi_vars : pi_varscache)
+    CHECK(std::find(ckt->pi_vars.begin(), ckt->pi_vars.end(),pi_vars) != ckt->pi_vars.end());
+  for (auto &dff_vars : dff_varscache)
+    CHECK(std::find(ckt->dff_vars.begin(), ckt->dff_vars.end(),dff_vars) != ckt->dff_vars.end());
 }
