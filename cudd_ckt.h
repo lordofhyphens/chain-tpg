@@ -31,8 +31,7 @@ class CUDD_Circuit : public Circuit {
     BDD PermuteFunction(const BDD& orig, const int diff);
     void save_blif(const char* filename);
     void load_blif(const char* filename);
-    void relabel_fin();
-    void relabel_fot();
+    void relabel();
   private: 
     Cudd  _manager;
 };

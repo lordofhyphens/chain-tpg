@@ -250,7 +250,6 @@ void CUDD_Circuit::load_blif(const char* filename)
     if (line.find(".model", 0) == 0) 
     {
       auto pos = line.find(" ", 0);
-      std::cerr << line.find(" ",0) << "\n";
       name = line.substr(pos);
       continue;
     }
@@ -359,7 +358,6 @@ void CUDD_Circuit::load_blif(const char* filename)
     }
     // if the length of the line is 1 character and just contains "1", then
     // the output is constant 1.
-    std::cerr << line.size() << "\n";
     if (line.size() == 1)
     {
       graph->push_back(NODEC(outname, CONST1));
@@ -402,20 +400,46 @@ void CUDD_Circuit::load_blif(const char* filename)
     product_count++;
   }
   // post-processing: do check on all outputs. Anything that has a _in suffix probably has a corresponding 
-  // name in the input list. If there is one, change its type to DFF and the corresponding input to DFF_IN
-  relabel_fin();
+  // name in the input list. If there is one, change the output type to DFF and the corresponding input to DFF_IN
+  for (auto& node : *graph) 
+  {
+    if (node.po && node.typ != DFF_IN)
+    {
+      auto pos = node.name.find("_in");
+      if (pos != std::string::npos) {
+        std::find(graph->begin(), graph->end(), node.name.substr(0,pos))->typ = DFF;
+        node.typ = DFF_IN;
+      }
+    }
+  }
+  relabel();
   auto it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
     return (g.po == false && g.nfo == 0);
   });
-  relabel_fin();
+
   graph->resize(it - graph->begin());
+  // clear all fin/fot labeling
+  for (auto& node : *graph) 
+  {
+    node.fot.clear();
+    node.fin.clear();
+  }
+  relabel();
   annotate(graph);
   levelize();
   std::sort(graph->begin(), graph->end());
+  for (auto& node : *graph) 
+  {
+    node.fot.clear();
+    node.fin.clear();
+  }
+  relabel();
+  levelize();
   annotate(graph);
+  levelize();
 }
 
-void CUDD_Circuit::relabel_fin() {
+void CUDD_Circuit::relabel() {
   int z = 0;
   for (auto &node : *graph)
   {
@@ -425,7 +449,7 @@ void CUDD_Circuit::relabel_fin() {
         if (it == graph->end()) continue;
         node.fin.push_back(std::pair<std::string, uint32_t> {gname, std::distance(graph->begin(),it)});
         it->fot.push_back(std::pair<std::string, uint32_t> {node.name, z});
-        it->nfo++;
+        it->nfo = it->fot.size();
       }
       z++;
   }

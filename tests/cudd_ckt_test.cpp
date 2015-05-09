@@ -147,5 +147,6 @@ TEST(CUDD_Ckt, LoadBlif)
 {
   ckt->clear();
   ckt->load_blif("tests/s27.bench.blif");
+  ckt->print();
   CHECK_EQUAL(68, ckt->size());
 }
