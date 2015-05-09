@@ -6,10 +6,36 @@
 #include "CppUTest/TestOutput.h"
 
 #include "../getpis.h"
+#include "../cudd_ckt.h"
+#include "../bdd_img.h"
 
 // STL
 #include <map>
+TEST_GROUP(GetPIs_FromCkt)
+{
+  CUDD_Circuit* ckt;
+  void setup()
+  {
+    Cudd_Srandom(0);
+    ckt = new CUDD_Circuit();
+    ckt->read_bench("tests/s27.bench");
+    ckt->form_bdds();
+  }
+  void teardown()
+  {
+    delete ckt;
+  }
+};
 
+TEST(GetPIs_FromCkt, InitialCheck)
+{
+  std::map<BDD_map_pair, BDD> cache;
+  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  BDD next = img(ckt->dff, ckt->dff_pair, prev,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  BDD pis = GetPIs(ckt->getManager(), ckt->pi, prev, next).PickOneMinterm(ckt->pi_vars);
+  pis.PrintCover();
+
+}
 TEST_GROUP(GetPIs)
 {
   Cudd* manager;
