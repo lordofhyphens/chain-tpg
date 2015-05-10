@@ -1,39 +1,23 @@
 #include "getpis.h"
 
-typedef std::map<int, BDD>::iterator map_iter;
-
-BDD GetPIs(Cudd manager, std::map<int,BDD> functions, BDD prev, BDD next)
+BDD GetPIs(Cudd manager, std::map<int,BDD> functions, const BDD& prev, const BDD& next)
 {
   BDD result = manager.bddOne();
+  if (next.IsZero()) return next;
+  if (prev.IsZero()) return prev;
+  if (next.IsOne() && prev.IsOne()) return next;
 
   for (auto& iter : functions)
   {
     BDD current_var = manager.bddVar(iter.first);
     bool do_complement = ((current_var * next).IsZero());
-    result *= iter.second.Constrain(prev);
-      if (do_complement)
-      {
-        result *= ~current_var;
-      }
-      else
-      {
-        result *= current_var;
-      }
+    result *= (do_complement ? ~(iter.second.Restrict(prev)): iter.second.Restrict(prev) );
   }
-  // remove NS variables, which are helpfully included in the function list.
-  // alternatively, we could read manager's var list and remove everything that 
-  // is marked as a state variable.
-  for (auto& iter : functions)
-  {
-    BDD current_var = manager.bddVar(iter.first);
-    result = result.Cofactor(current_var);
-  }
-
-  return result;
+  return std::move(result);
 }
 
 // get just one minterm
-BDD GetPI(Cudd manager, std::map<int,BDD> functions, std::map<int, BDD> vars, BDD prev, BDD next)
+BDD GetPI(Cudd manager, std::map<int,BDD> functions, std::map<int, BDD> vars, const BDD& prev, const BDD& next)
 {
   return GetPIs(manager, functions, prev,next).PickOneMinterm(getVector(manager, vars));
 }

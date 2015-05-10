@@ -30,15 +30,22 @@ TEST_GROUP(GetPIs_FromCkt)
 TEST(GetPIs_FromCkt, InitialCheck)
 {
   std::map<BDD_map_pair, BDD> cache;
-  std::cerr << "\n";
   BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
-  prev.PrintCover();
   BDD next = (img(ckt->dff, ckt->dff_pair, prev,ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
-  next.PrintCover();
-  BDD pis = GetPIs(ckt->getManager(), ckt->pi, prev, next).PickOneMinterm(ckt->pi_vars);
+  BDD pis = GetPIs(ckt->getManager(), ckt->dff_io, prev, next).PickOneMinterm(ckt->pi_vars);
+  pis.PrintCover();
   CHECK(!pis.IsZero());
 }
+TEST(GetPIs_FromCkt, Test100to101)
+{
+  BDD prev = ckt->pi[4] * ~ckt->pi[5] * ~ckt->pi[6];
+  BDD next = ckt->pi[4] * ~ckt->pi[5] * ckt->pi[6];
+  BDD checkval = ckt->pi[0] * ckt->pi[1] * ~ckt->pi[2];
+  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
 
+  CHECK(!result.IsZero());
+  CHECK(checkval == (GetPIs(ckt->getManager(), ckt->dff_io, prev,next) * checkval));
+}
 TEST_GROUP(GetPIs)
 {
   Cudd* manager;
@@ -86,7 +93,7 @@ TEST_GROUP(GetPIs)
 TEST(GetPIs, TestConstantOneOne)
 {
   /* Check to make sure that GetPIs(1,1) = 1 in BDD terms. */
-  CHECK_EQUAL(manager->bddOne(), GetPIs(*manager, funcs, manager->bddOne(), manager->bddOne()));
+  CHECK(GetPIs(*manager, funcs, manager->bddOne(), manager->bddOne()).IsOne());
 }
 
 TEST(GetPIs, TestConstantZeroZero)
@@ -98,17 +105,17 @@ TEST(GetPIs, TestConstantZeroZero)
 TEST(GetPIs, TestConstantOneZero)
 {
   /* Check to make sure that GetPIs(1,0) = 0 in BDD terms. */
-  CHECK_EQUAL(manager->bddZero(), GetPIs(*manager, funcs, manager->bddOne(), manager->bddZero()));
+  CHECK(GetPIs(*manager, funcs, manager->bddOne(), manager->bddZero()).IsZero());
 }
 TEST(GetPIs, TestConstantZeroOne)
 {
   /* Check to make sure that GetPIs(0,1) = 0 in BDD terms. */
-  CHECK_EQUAL(manager->bddZero(), GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()));
+  CHECK(GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()).IsZero());
 }
 TEST(GetPIs, TestConstantPrevZero)
 {
   /* Check to make sure that GetPIs(0,1) = 0 in BDD terms. */
-  CHECK_EQUAL(manager->bddZero(), GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()));
+  CHECK(GetPIs(*manager, funcs, manager->bddZero(), manager->bddOne()).IsZero());
 }
 
 TEST(GetPIs, Test10to11)
@@ -118,7 +125,7 @@ TEST(GetPIs, Test10to11)
   BDD checkval = vars[0] * ~vars[2] * ~vars[3];
   BDD result = GetPIs(*manager, funcs, prev,next);
 
-  CHECK_EQUAL(checkval, (GetPIs(*manager, funcs, prev,next) * checkval));
+  CHECK(checkval == (GetPIs(*manager, funcs, prev,next) * checkval));
 }
 TEST(GetPIs, Test10to11No111)
 {
@@ -145,9 +152,8 @@ TEST(GetPIs, BDDMintermToSet)
 {
   BDD prev = vars[1] * ~vars[3];
   BDD next = vars[1] * vars[3];
-  BDD checkval = vars[0] * vars[2] * vars[3];
+
   BDD result = GetPI(*manager, funcs, vars, prev,next);
-  result.PrintCover();
   BDD result_single = result.PickOneMinterm(getVector(*manager,pis));
   
   std::map<int, int> single_flat = getInputsFromMinterm(*manager, result_single);
