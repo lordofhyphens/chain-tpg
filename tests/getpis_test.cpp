@@ -11,6 +11,25 @@
 
 // STL
 #include <map>
+TEST_GROUP(GetPIs_s1238)
+{
+  CUDD_Circuit* ckt = nullptr;
+  void setup()
+  {
+    Cudd_Srandom(0);
+    ckt = new CUDD_Circuit();
+    ckt->getManager().AutodynEnable(CUDD_REORDER_GROUP_SIFT);
+    ckt->read_bench("../../bench/iscas89/s1196.bench.level");
+    ckt->form_bdds();
+    ckt->getManager().ReduceHeap(CUDD_REORDER_GROUP_SIFT, 20);
+  }
+  void teardown()
+  {
+    delete ckt;
+  }
+};
+
+
 TEST_GROUP(GetPIs_FromCkt)
 {
   CUDD_Circuit* ckt = nullptr;
@@ -26,20 +45,29 @@ TEST_GROUP(GetPIs_FromCkt)
     delete ckt;
   }
 };
+TEST(GetPIs_s1238, Test111110101001100100to010111010001110110)
+{
+  BDD prev = ckt->get_minterm_from_string("-------1-1111010100-1100100-----");
+  BDD next = ckt->get_minterm_from_string("-------0-1011101000-1110110-----");
+  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
+  result.PrintCover();
 
+  CHECK(!result.IsZero());
+}
 TEST(GetPIs_FromCkt, InitialCheck)
 {
   std::map<BDD_map_pair, BDD> cache;
   BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
   BDD next = (img(ckt->dff, ckt->dff_pair, prev,ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
   BDD pis = GetPIs(ckt->getManager(), ckt->dff_io, prev, next).PickOneMinterm(ckt->pi_vars);
-  pis.PrintCover();
   CHECK(!pis.IsZero());
 }
 TEST(GetPIs_FromCkt, Test100to101)
 {
-  BDD prev = ckt->pi[4] * ~ckt->pi[5] * ~ckt->pi[6];
-  BDD next = ckt->pi[4] * ~ckt->pi[5] * ckt->pi[6];
+  BDD prev = ckt->get_minterm_from_string("----100");
+  CHECK(prev ==  (ckt->pi[4] * ~ckt->pi[5] * ~ckt->pi[6]));
+  BDD next = ckt->get_minterm_from_string("----101");
+  CHECK(next == (ckt->pi[4] * ~ckt->pi[5] * ckt->pi[6]));
   BDD checkval = ckt->pi[0] * ckt->pi[1] * ~ckt->pi[2];
   BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
 

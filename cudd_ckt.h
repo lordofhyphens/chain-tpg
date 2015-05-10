@@ -46,6 +46,7 @@ class CUDD_Circuit : public Circuit {
     void save_blif(const char* filename);
     void load_blif(const char* filename);
     void relabel();
+    BDD get_minterm_from_string(const std::string& minterm);
   private: 
     Cudd  _manager;
 };

@@ -162,3 +162,14 @@ TEST(CUDD_Ckt, LoadBlif)
   for (auto &dff_vars : dff_varscache)
     CHECK(std::find(ckt->dff_vars.begin(), ckt->dff_vars.end(),dff_vars) != ckt->dff_vars.end());
 }
+
+TEST(CUDD_Ckt, TestMintermFromString)
+{
+  BDD prev = ckt->get_minterm_from_string("----100");
+  ckt->getManager().ReduceHeap(CUDD_REORDER_SIFT,1);
+  CHECK(prev == (ckt->pi[4] * ~ckt->pi[5] * ~ckt->pi[6]));
+  prev = ckt->get_minterm_from_string("--0-110");
+  CHECK(prev != (ckt->pi[4] * ~ckt->pi[5] * ~ckt->pi[6]));
+  CHECK(prev == (~ckt->pi[2] * ckt->pi[4] * ckt->pi[5] * ~ckt->pi[6]));
+
+}

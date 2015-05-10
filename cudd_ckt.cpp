@@ -462,3 +462,23 @@ void CUDD_Circuit::relabel() {
       z++;
   }
 }
+
+BDD CUDD_Circuit::get_minterm_from_string(const std::string& minterm) 
+{
+  BDD result = _manager.bddOne();
+  for (size_t i = 0; i < minterm.size(); i++)
+  {
+    switch(minterm[i])
+    {
+      case '1':
+        result *= _manager.bddVar(i); break;
+      case '0':
+        result *= ~_manager.bddVar(i); break;
+      case '-':
+      default: 
+        break;
+    }
+  }
+
+  return std::move(result);
+}

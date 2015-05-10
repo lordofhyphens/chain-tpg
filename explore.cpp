@@ -11,6 +11,7 @@
 #include "util/vectors.h"
 #include "util/utility.h"
 #include "bdd_util.h"
+#include "getpis.h"
 #include <algorithm>
 #include <deque>
 #include <cstring>
@@ -812,15 +813,25 @@ int main(int argc, char* const argv[])
     }
   }
   FILE fp_old = *stdout;  // preserve the original stdout
-  *stdout = *fopen("links.txt","w");  // redirect stdout to null
+  *stdout = *fopen((infile + "-chain.txt").c_str(),"w");  // redirect stdout to null
   for (auto &p : all_chains)
   {
-    for (auto &cover : p.data)
+    for (size_t i = 0; i < p.data.size(); i+=2)
     {
-      cover.PrintCover();
+      auto ins = GetPIs(ckt.getManager(), ckt.dff_io, p.data[i], p.data[i+1]);
+      if (ins.IsZero())
+      {
+        std::cout << "|GetPIs returned constant 0 for ";
+        p.data[i].PrintCover();
+        p.data[i+1].PrintCover();
+        std::cout << "|\n";
+      }
+      else
+        ins.PickOneMinterm(ckt.pi_vars).PrintCover();
     }
   }
   *stdout=fp_old;  // restore stdout
+  std::cerr << "Wrote links to " << (infile + "-chain.txt") << "\n";
   link_time = elapsed(start);
   std::cerr << __FILE__ << ": " <<"Linking took " << link_time << "ms.\n";
   size_t nodes_visited = 0, hops = 0;

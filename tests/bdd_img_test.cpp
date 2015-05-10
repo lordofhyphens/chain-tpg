@@ -1,4 +1,5 @@
 #include "../bdd_img.h"
+#include "../cudd_ckt.h"
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
@@ -40,6 +41,28 @@ TEST_GROUP(BDD_Img_Toy)
     delete manager;
   }
 };
+TEST_GROUP(BDDIMG_s1196)
+{
+  CUDD_Circuit* ckt = nullptr;
+  void setup()
+  {
+    Cudd_Srandom(0);
+    ckt = new CUDD_Circuit();
+    ckt->read_bench("../../bench/iscas89/s1196.bench.level");
+    ckt->form_bdds();
+  }
+  void teardown()
+  {
+    delete ckt;
+  }
+};
+
+TEST(BDDIMG_s1196, imgtest)
+{
+  std::map<BDD_map_pair, BDD> cache {};
+  std::cerr << ckt->getManager().ReadSize() << "\n";
+  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+}
 
 
 TEST_GROUP(BDD_Img)
