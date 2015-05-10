@@ -36,6 +36,7 @@ TEST_GROUP(BDD_Img_Toy)
     vars.clear();
     funcs.clear();
     cache.clear();
+    mapping.clear();
     delete manager;
   }
 };
@@ -48,6 +49,7 @@ TEST_GROUP(BDD_Img)
   std::map<int,int> mapping;
   std::map<int,BDD> funcs;
   std::map<BDD_map_pair, BDD> cache;
+  std::vector<BDD> varlist;
 
   void setup()
   {
@@ -59,11 +61,14 @@ TEST_GROUP(BDD_Img)
     // 10->10, 11, 01
     // 00->01,
     manager = new Cudd();
+    manager->makeVerbose();
     vars[0] = BDD(manager->bddVar(0)); // a
     vars[1] = BDD(manager->bddVar(1)); // b -> DFF
     vars[2] = BDD(manager->bddVar(2)); // c
     vars[3] = BDD(manager->bddVar(3)); // d -> DFF
     vars[4] = BDD(manager->bddVar(4)); // e
+    for (int i = 0; i < 5; i++)
+      varlist.push_back(BDD(manager->bddVar(i)));
 
     for (int i = 0; i < 5; i++)
       mapping[i] = i;
@@ -78,6 +83,7 @@ TEST_GROUP(BDD_Img)
     mapping.clear();
     cache.clear();
     funcs.clear();
+    varlist.clear();
     delete manager;
   }
 
