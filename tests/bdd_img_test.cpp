@@ -61,7 +61,6 @@ TEST_GROUP(BDD_Img)
     // 10->10, 11, 01
     // 00->01,
     manager = new Cudd();
-    manager->makeVerbose();
     vars[0] = BDD(manager->bddVar(0)); // a
     vars[1] = BDD(manager->bddVar(1)); // b -> DFF
     vars[2] = BDD(manager->bddVar(2)); // c
