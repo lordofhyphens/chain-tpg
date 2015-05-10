@@ -35,21 +35,21 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
     if (verbose_flag) 
       std::cerr << __FILE__ << ":" << "Terminal case." << "\n";
     BDD constant_terms = manager.bddOne(), pos = manager.bddOne();
-    for (auto it = f.begin(); it != f.end(); it++) {
-      if (isConstant(*it))
-      { 
-        // if this term is constant 1
-        if (it->second == manager.bddOne()) 
+    for (auto& k : f)
+    {
+      if (Cudd_IsConstant(k.second.getNode())) {
+        if (k.second == manager.bddOne())
         {
-          constant_terms *= (manager.bddVar(mapping[it->first]));
-        } else {
-          constant_terms *= ~(manager.bddVar(mapping[it->first]));
+          constant_terms *= (manager.bddVar(mapping[k.first]));
+        }
+        else
+        {
+          constant_terms *= ~(manager.bddVar(mapping[k.first]));
         }
       } else {
-        pos *= (manager.bddVar(mapping[it->first]) + ~manager.bddVar(mapping[it->first]));
+        pos *= (manager.bddVar(mapping[k.first]) + ~manager.bddVar(mapping[k.first]));
       }
     }
-
     // terminal case. The minterm is equal to 
     // y_n = f_n if == 1, ~f_n otherwise, AND the ANDing of all constant nodes and their complements.
     // return this minterm
@@ -64,9 +64,9 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
     if (cache.count(BDD_map_pair(f,p)) == 0)
     {
       // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
-      for (std::map<int, BDD>::iterator it = v.begin(); it != v.end(); it++) 
+      for (auto& n : v)
       {
-        it->second = it->second.Cofactor(p);
+        n.second = n.second.Cofactor(p);
       }
 
       cache[BDD_map_pair(f,p)] = _img(v, mapping, manager, cache, split+1);
@@ -76,9 +76,9 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
     // try to cache previously-found results
     if (cache.count(BDD_map_pair(f,~p)) == 0)
     {
-      for (std::map<int, BDD>::iterator it = vn.begin(); it != vn.end(); it++) 
+      for (auto& n : v)
       {
-        it->second = it->second.Cofactor(~p);
+        n.second = n.second.Cofactor(~p);
       }
       cache[BDD_map_pair(f,~p)] = _img(vn, mapping, manager, cache, split+1);
     }

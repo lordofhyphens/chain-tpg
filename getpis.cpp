@@ -23,9 +23,9 @@ BDD GetPIs(Cudd manager, std::map<int,BDD> functions, BDD prev, BDD next)
   // remove NS variables, which are helpfully included in the function list.
   // alternatively, we could read manager's var list and remove everything that 
   // is marked as a state variable.
-  for (map_iter iter = functions.begin(); iter != functions.end(); iter++)
+  for (auto& iter : functions)
   {
-    BDD current_var = manager.bddVar(iter->first);
+    BDD current_var = manager.bddVar(iter.first);
     result = result.Cofactor(current_var);
   }
 
