@@ -6,11 +6,11 @@ BDD GetPIs(Cudd manager, std::map<int,BDD> functions, BDD prev, BDD next)
 {
   BDD result = manager.bddOne();
 
-  for (map_iter iter = functions.begin(); iter != functions.end(); iter++)
+  for (auto& iter : functions)
   {
-    BDD current_var = manager.bddVar(iter->first);
-    bool do_complement = ((current_var * next) == manager.bddZero());
-    result *= iter->second.Constrain(prev);
+    BDD current_var = manager.bddVar(iter.first);
+    bool do_complement = ((current_var * next).IsZero());
+    result *= iter.second.Constrain(prev);
       if (do_complement)
       {
         result *= ~current_var;
