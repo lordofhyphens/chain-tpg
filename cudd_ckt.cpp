@@ -225,20 +225,23 @@ std::vector<bool> AdaptString(std::string input)
 std::vector<std::string> delimited_string(const std::string& line,  const std::string& separator, size_t start) {
   auto pos = start;
   std::vector<std::string> result;
+  std::string cleaned_line = line;
+  auto new_end = std::unique(cleaned_line.begin(), cleaned_line.end(), [=](char& c1, char&c2) -> bool { return c1 == ' ' && c2 == ' ' && c1 == c2;});
+  cleaned_line.erase(new_end, cleaned_line.end());
   while (pos < line.size())
   {
-    auto gname = line.substr(pos, line.find(separator, pos+1)-pos);
+    auto gname = cleaned_line.substr(pos, cleaned_line.find(separator, pos+1)-pos);
     gname.erase(std::remove_if(gname.begin(), gname.end(),
     [&separator](char &c) -> bool { 
       return c == *(separator.c_str());
     }),gname.end());
-    pos = line.find(separator, pos+1);
+    pos = cleaned_line.find(separator, pos+1);
     result.push_back(gname);
   }
   return result;
 }
 
-void CUDD_Circuit::load_blif(const char* filename) 
+void CUDD_Circuit::read_blif(const char* filename, bool do_levelize) 
 {
   // parse a simplistic BLIF file. We assume that inputs, outputs are
   // specified. We ignore model and that the file is self-sufficient (no
@@ -259,6 +262,30 @@ void CUDD_Circuit::load_blif(const char* filename)
     {
       auto pos = line.find(" ", 0);
       name = line.substr(pos);
+      continue;
+    }
+    if (line.find(".latch", 0) == 0)
+    {
+      int i = 0;
+      auto pos = line.find(" ", line.find(".latch",0));
+      std::string src = "";
+      for (auto &gname : delimited_string(line, " ", pos)) {
+        switch(i)
+        {
+          case 0:
+            src = gname;
+            break;
+          case 1:
+            graph->push_back(NODEC(gname+"_IN", DFF_IN, 1, src)); // actually add the output node
+            graph->push_back(NODEC(gname,DFF));
+            graph->push_back(NODEC(gname+"_NOT", NOT, 1, gname)); // actually add the output node
+            break;
+          default: 
+            // the optionals, ignore for now?
+            break;
+        }
+        i++;
+      }
       continue;
     }
     if (line.find(".end", 0) == 0) 
@@ -434,17 +461,21 @@ void CUDD_Circuit::load_blif(const char* filename)
   }
   relabel();
   annotate(graph);
-  levelize();
-  std::sort(graph->begin(), graph->end());
-  for (auto& node : *graph) 
+
+  if (do_levelize)
   {
-    node.fot.clear();
-    node.fin.clear();
+    levelize();
+    std::sort(graph->begin(), graph->end());
+    for (auto& node : *graph) 
+    {
+      node.fot.clear();
+      node.fin.clear();
+    }
+    relabel();
+    levelize();
+    annotate(graph);
+    levelize();
   }
-  relabel();
-  levelize();
-  annotate(graph);
-  levelize();
 }
 
 void CUDD_Circuit::relabel() {

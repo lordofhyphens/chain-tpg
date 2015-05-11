@@ -41,29 +41,26 @@ TEST_GROUP(BDD_Img_Toy)
     delete manager;
   }
 };
-TEST_GROUP(BDDIMG_s1196)
+TEST_GROUP(BDDIMG_s27)
 {
-  CUDD_Circuit* ckt = nullptr;
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
   void setup()
   {
     Cudd_Srandom(0);
-    ckt = new CUDD_Circuit();
-    ckt->read_bench("../../bench/iscas89/s1196.bench.level");
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    ckt->read_blif("../../bench/iscas/blif/s27.blif");
     ckt->form_bdds();
   }
   void teardown()
   {
-    delete ckt;
+    ckt = nullptr;
   }
 };
-
-TEST(BDDIMG_s1196, imgtest)
+TEST(BDDIMG_s27, TestFormBDDs)
 {
-  std::map<BDD_map_pair, BDD> cache {};
-  std::cerr << ckt->getManager().ReadSize() << "\n";
-  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  CHECK(ckt->size() > 0);
+  CHECK(ckt->getManager().ReadSize() > 0);
 }
-
 
 TEST_GROUP(BDD_Img)
 {

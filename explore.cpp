@@ -410,7 +410,7 @@ int main(int argc, char* const argv[])
   else if (infile.find("blif") != std::string::npos) 
   {
     std::clog << infile << "\n";
-    ckt.load_blif(infile.c_str());
+    ckt.read_blif(infile.c_str());
   }
   else
   {

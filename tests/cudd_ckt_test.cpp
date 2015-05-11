@@ -6,12 +6,12 @@ TEST_GROUP(CUDD_Ckt)
 {
   // test our bench reader with s27.bench initially, we can (probably) take 
   // other formats later.
-  CUDD_Circuit* ckt;
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
   Cudd manager;
 
   void setup()
   {
-    ckt = new CUDD_Circuit();
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
     Cudd_Srandom(0);
     ckt->read_bench("tests/s27.bench");
     // DFF gates are 15, 27, 28
@@ -20,7 +20,7 @@ TEST_GROUP(CUDD_Ckt)
   }
   void teardown()
   {
-    delete ckt;
+    ckt = nullptr;
   }
 
 };
@@ -145,22 +145,14 @@ TEST(CUDD_Ckt, S27_PI_DFFCountCorrect)
 TEST(CUDD_Ckt, LoadBlif)
 {
   ckt->form_bdds();
-  auto pocache = ckt->po;
-  auto dffcache = ckt->dff;
-  auto picache = ckt->pi;
-  auto pi_varscache = ckt->pi_vars;
-  auto dff_varscache = ckt->dff_vars;
-  auto all_varscache = ckt->all_vars;
-  auto dff_paircache = ckt->dff_pair;
 
-  ckt->clear();
-  ckt->load_blif("tests/s27.bench.blif");
+  ckt = nullptr;
+  ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+  ckt->read_blif("tests/s1196.blif", false);
+  ckt->print();
   ckt->form_bdds();
-  CHECK_EQUAL(68, ckt->size());
-  for (auto &pi_vars : pi_varscache)
-    CHECK(std::find(ckt->pi_vars.begin(), ckt->pi_vars.end(),pi_vars) != ckt->pi_vars.end());
-  for (auto &dff_vars : dff_varscache)
-    CHECK(std::find(ckt->dff_vars.begin(), ckt->dff_vars.end(),dff_vars) != ckt->dff_vars.end());
+  CHECK_EQUAL(29, ckt->size());
+  std::cerr << "\nBDD Manager Size " << ckt->getManager().ReadSize() << "\n";
 }
 
 TEST(CUDD_Ckt, TestMintermFromString)

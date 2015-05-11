@@ -43,8 +43,7 @@ class CUDD_Circuit : public Circuit {
     BDD InputBDD(std::vector<bool> pis);
     BDD InputBDD(std::string pis);
     BDD PermuteFunction(const BDD& orig, const int diff);
-    void save_blif(const char* filename);
-    void load_blif(const char* filename);
+    void read_blif(const char* filename, bool do_levelize = true);
     void relabel();
     BDD get_minterm_from_string(const std::string& minterm);
   private: 
