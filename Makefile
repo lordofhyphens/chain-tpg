@@ -6,7 +6,7 @@ CUDDLIB_FLAGS=$(foreach libs,$(CUDDLIBS),-l$(libs))
 CUDDFLAGS:=-I$(CUDD)/include
 
 # CPPUTEST 
-CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include
+CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include 
 CPPUTEST_LIBS:=-lCppUTest -lCppUTestExt
 
 objs=getpis.o bdd_util.o bdd_img.o explore.o cudd_ckt.o
