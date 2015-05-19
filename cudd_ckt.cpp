@@ -457,6 +457,8 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
   }
   // post-processing: do check on all outputs. Anything that has a _in suffix probably has a corresponding 
   // name in the input list. If there is one, change the output type to DFF and the corresponding input to DFF_IN
+	auto it = remove_if(graph->begin(),graph->end(),isUnknown);
+  graph->resize(it - graph->begin());
   for (auto& node : *graph) 
   {
     if (node.po && node.typ != DFF_IN)
@@ -469,10 +471,13 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
     }
   }
   relabel();
-  auto it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
+  it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
     return (g.po == false && g.nfo == 0 && g.typ != DFF_IN);
   });
-
+  graph->resize(it - graph->begin());
+  it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
+    return (g.nfi == 0 && g.typ != DFF && g.typ != INPT);
+  });
   graph->resize(it - graph->begin());
   // clear all fin/fot labeling
   for (auto& node : *graph) 
@@ -483,7 +488,9 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
   relabel();
   annotate(graph);
   // clean up junk
-
+  if (verbose_flag)
+    print();
+  
   if (do_levelize)
   {
     levelize();
@@ -498,9 +505,6 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
     annotate(graph);
     levelize();
   }
-
-	it = remove_if(graph->begin(),graph->end(),isUnknown);
-  graph->resize(it - graph->begin());
 
 	it = remove_if(graph->begin(),graph->end(),[&](const NODEC& n) -> bool 
   { return (n.fot.size() == 0 && !n.po) || (n.fin.size() == 0 && n.fot.size()==0) || n.name == "";});

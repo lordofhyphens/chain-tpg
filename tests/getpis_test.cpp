@@ -4,30 +4,22 @@
 #include <cuddObj.hh>
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
-
+#include <memory>
 #include "../getpis.h"
 #include "../cudd_ckt.h"
 #include "../bdd_img.h"
 
 // STL
 #include <map>
-TEST_GROUP(GetPIs_s1238)
-{
-  CUDD_Circuit* ckt = nullptr;
-  void setup()
-  {
-    Cudd_Srandom(0);
-    ckt = new CUDD_Circuit();
-    ckt->getManager().AutodynEnable(CUDD_REORDER_GROUP_SIFT);
-    ckt->read_bench("../../bench/iscas89/s1238.bench.level");
-    ckt->form_bdds();
-    ckt->getManager().ReduceHeap(CUDD_REORDER_GROUP_SIFT, 20);
-  }
-  void teardown()
-  {
-    delete ckt;
-  }
-};
+
+//TEST(GetPIs_s1238, TestA)
+//{
+//  BDD prev = ckt->get_minterm_from_string("-------1-1111010100-1100100-----");
+//  BDD next = ckt->get_minterm_from_string("-------0-1011101000-1110110-----");
+//  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
+//
+//  CHECK(!result.IsZero());
+//}
 
 TEST_GROUP(GetPIs_s1196)
 {
@@ -69,14 +61,7 @@ TEST_GROUP(GetPIs_FromCkt)
     delete ckt;
   }
 };
-TEST(GetPIs_s1238, TestA)
-{
-  BDD prev = ckt->get_minterm_from_string("-------1-1111010100-1100100-----");
-  BDD next = ckt->get_minterm_from_string("-------0-1011101000-1110110-----");
-  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
 
-  CHECK(!result.IsZero());
-}
 TEST(GetPIs_FromCkt, InitialCheck)
 {
   std::map<BDD_map_pair, BDD> cache;

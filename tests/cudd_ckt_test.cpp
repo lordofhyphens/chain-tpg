@@ -2,6 +2,66 @@
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
+TEST_GROUP(TEST_S1238)
+{
+  // test our bench reader with s27.bench initially, we can (probably) take 
+  // other formats later.
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  Cudd manager;
+
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    verbose_flag = 1;
+    ckt->read_blif("tests/s1238.blif", true);
+    ckt->print();
+    ckt->form_bdds();
+    manager = ckt->getManager();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+TEST(TEST_S1238, dffvars)
+{
+  CHECK_EQUAL(18, ckt->dff_vars.size());
+  CHECK_EQUAL(18, ckt->dff.size());
+}
+
+
+
+TEST_GROUP(TEST_S27_V)
+{
+  // test our bench reader with s27.bench initially, we can (probably) take 
+  // other formats later.
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  Cudd manager;
+
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/s27.blif");
+    // DFF gates are 15, 27, 28
+    ckt->form_bdds();
+    manager = ckt->getManager();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+TEST(TEST_S27_V, dffvars)
+{
+  CHECK_EQUAL(3, ckt->dff_vars.size());
+  CHECK_EQUAL(3, ckt->dff.size());
+}
+
+
 TEST_GROUP(TEST_S27)
 {
   // test our bench reader with s27.bench initially, we can (probably) take 
