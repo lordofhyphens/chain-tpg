@@ -148,10 +148,10 @@ TEST(CUDD_Ckt, LoadBlif)
 
   ckt = nullptr;
   ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
-  ckt->read_blif("tests/s1196.blif", false);
+  ckt->read_blif("tests/b01.blif", true);
   ckt->print();
   ckt->form_bdds();
-  CHECK_EQUAL(29, ckt->size());
+  CHECK_EQUAL(87, ckt->size());
   std::cerr << "\nBDD Manager Size " << ckt->getManager().ReadSize() << "\n";
 }
 

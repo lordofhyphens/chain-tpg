@@ -48,7 +48,7 @@ TEST_GROUP(BDDIMG_s27)
   {
     Cudd_Srandom(0);
     ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
-    ckt->read_blif("../../bench/iscas/blif/s27.blif");
+    ckt->read_blif("tests/s27.blif", true);
     ckt->form_bdds();
   }
   void teardown()

@@ -48,6 +48,8 @@ class CUDD_Circuit : public Circuit {
     BDD get_minterm_from_string(const std::string& minterm);
   private: 
     Cudd  _manager;
+    void add_minterm_to_graph(bool& had_minterm, bool& single_product, std::tuple<int, std::string>& products, std::string& outname, std::vector<std::string>& minterm_list);
+
 };
 
 std::vector<bool> AdaptString(std::string input);
