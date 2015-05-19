@@ -206,6 +206,7 @@ void CUDD_Circuit::form_bdds()
   // garbage collection can happen.
   net.clear();
   _manager.AutodynDisable();
+  assert(dff_pair.size() > 0);
   for (auto& id : dff_pair)
   {
     dff_io[id.second] = dff[id.first];

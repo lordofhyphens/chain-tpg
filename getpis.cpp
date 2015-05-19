@@ -2,6 +2,7 @@
 
 BDD GetPIs(Cudd manager, std::map<int,BDD> functions, const BDD& prev, const BDD& next)
 {
+  assert (functions.size() > 0);
   BDD result = manager.bddOne();
   if (next.IsZero()) return next;
   if (prev.IsZero()) return prev;

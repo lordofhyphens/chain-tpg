@@ -830,6 +830,14 @@ int main(int argc, char* const argv[])
         ins.PickOneMinterm(ckt.pi_vars).PrintCover();
     }
   }
+  *stdout = *fopen((infile + "-chain-s.txt").c_str(),"w");  // redirect stdout to null
+  for (auto &p : all_chains)
+  {
+    for (size_t i = 0; i < p.data.size(); i+=1)
+    {
+        p.data[i].PickOneMinterm(ckt.pi_vars).PrintCover();
+    }
+  }
   *stdout=fp_old;  // restore stdout
   std::cerr << "Wrote links to " << (infile + "-chain.txt") << "\n";
   link_time = elapsed(start);

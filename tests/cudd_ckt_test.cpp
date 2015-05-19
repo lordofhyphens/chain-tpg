@@ -69,6 +69,7 @@ TEST(TEST_B01, dffvars)
 {
   CHECK_EQUAL(5, ckt->dff_vars.size());
   CHECK_EQUAL(5, ckt->dff.size());
+  CHECK_EQUAL(5, ckt->dff_io.size());
 }
 TEST_GROUP(CUDD_Ckt)
 {
