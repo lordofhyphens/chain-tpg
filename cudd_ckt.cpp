@@ -350,6 +350,7 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
             break;
           case 1:
             graph->push_back(NODEC(gname+"_IN", DFF_IN, 1, src)); // actually add the output node
+            graph->back().po = true;
             graph->push_back(NODEC(gname,DFF));
             graph->push_back(NODEC(gname+"_NOT", NOT, 1, gname)); // actually add the output node
             break;
@@ -468,7 +469,7 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
   }
   relabel();
   auto it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
-    return (g.po == false && g.nfo == 0);
+    return (g.po == false && g.nfo == 0 && g.typ != DFF_IN);
   });
 
   graph->resize(it - graph->begin());

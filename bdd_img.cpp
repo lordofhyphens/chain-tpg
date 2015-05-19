@@ -30,6 +30,17 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
   // next-state.
   // first, check to see if any of the functions are constant 0 or constant 1.
   // if there are, we have a terminal case
+  try 
+  {
+    assert(mapping.size() >= split);
+    if ( manager.ReadPerm(split) < 0 )
+      throw manager.ReadPerm(split);
+  }
+  catch (int e)
+  {
+    std::cerr << "Variable " << split << "# is negative in perm." << "\n";
+    throw e;
+  }
   if (__gnu_parallel::count_if(f.begin(), f.end(), isConstant) > 0) 
   {
     if (verbose_flag) 
