@@ -2,6 +2,74 @@
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
+TEST_GROUP(TEST_S27)
+{
+  // test our bench reader with s27.bench initially, we can (probably) take 
+  // other formats later.
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  Cudd manager;
+
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/s27.blif");
+    // DFF gates are 15, 27, 28
+    ckt->form_bdds();
+    manager = ckt->getManager();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+TEST(TEST_S27, pivars)
+{
+  CHECK_EQUAL(4, ckt->pi_vars.size());
+}
+TEST(TEST_S27, povars)
+{
+  CHECK_EQUAL(1, ckt->po.size());
+}
+TEST(TEST_S27, dffvars)
+{
+  CHECK_EQUAL(3, ckt->dff_vars.size());
+  CHECK_EQUAL(3, ckt->dff.size());
+}
+
+TEST_GROUP(TEST_B01)
+{
+  // test our bench reader with s27.bench initially, we can (probably) take 
+  // other formats later.
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  Cudd manager;
+
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/b01.blif");
+    // DFF gates are 15, 27, 28
+    ckt->form_bdds();
+    manager = ckt->getManager();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+
+TEST(TEST_B01, pivars)
+{
+  CHECK_EQUAL(2, ckt->pi_vars.size());
+}
+TEST(TEST_B01, dffvars)
+{
+  CHECK_EQUAL(5, ckt->dff_vars.size());
+  CHECK_EQUAL(5, ckt->dff.size());
+}
 TEST_GROUP(CUDD_Ckt)
 {
   // test our bench reader with s27.bench initially, we can (probably) take 
@@ -149,9 +217,8 @@ TEST(CUDD_Ckt, LoadBlif)
   ckt = nullptr;
   ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
   ckt->read_blif("tests/b01.blif", true);
-  ckt->print();
   ckt->form_bdds();
-  CHECK_EQUAL(87, ckt->size());
+  CHECK_EQUAL(96, ckt->size());
   std::cerr << "\nBDD Manager Size " << ckt->getManager().ReadSize() << "\n";
 }
 
