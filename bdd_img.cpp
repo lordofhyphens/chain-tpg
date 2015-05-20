@@ -1,4 +1,9 @@
 #include "bdd_img.h"
+#ifndef __clang__ 
+	#include <parallel/algorithm>
+#else
+	#define __gnu_parallel std 
+#endif
 
 extern int verbose_flag;
 BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
