@@ -13,10 +13,9 @@ TEST_GROUP(TEST_S1238)
   {
     ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
     Cudd_Srandom(0);
-    verbose_flag = 1;
     ckt->read_blif("tests/s1238.blif", true);
-    ckt->print();
     ckt->form_bdds();
+
     manager = ckt->getManager();
   }
   void teardown()
@@ -27,8 +26,12 @@ TEST_GROUP(TEST_S1238)
 };
 TEST(TEST_S1238, dffvars)
 {
-  CHECK_EQUAL(18, ckt->dff_vars.size());
+  CHECK_EQUAL(17, ckt->dff_vars.size());
   CHECK_EQUAL(18, ckt->dff.size());
+  for(auto &k : ckt->dff)
+  {
+    std::cerr << k.first << " " << ckt->at(k.first);
+  }
 }
 
 
