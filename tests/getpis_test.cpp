@@ -20,6 +20,38 @@
 //
 //  CHECK(!result.IsZero());
 //}
+//
+TEST_GROUP(GetPIs_s15850)
+{
+  CUDD_Circuit* ckt = nullptr;
+  void setup()
+  {
+    Cudd_Srandom(0);
+    ckt = new CUDD_Circuit();
+    ckt->getManager().AutodynEnable(CUDD_REORDER_GROUP_SIFT);
+    ckt->read_blif("tests/s15850.blif");
+    ckt->form_bdds();
+  }
+  void teardown()
+  {
+    delete ckt;
+  }
+};
+
+TEST(GetPIs_s15850, RandomImg)
+{
+  std::map<BDD_map_pair, BDD> cache;
+  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  CHECK(!(prev.IsZero()));
+  BDD next = (img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
+  CHECK(!(next.IsZero()) && !(next.IsOne()));
+  verbose_flag = 1;
+  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
+  verbose_flag = 0;
+
+  CHECK(!(result.IsZero()));
+}
+
 
 TEST_GROUP(GetPIs_s1196)
 {
@@ -77,7 +109,9 @@ TEST(GetPIs_FromCkt, Test100to101)
   BDD next = ckt->get_minterm_from_string("----101");
   CHECK(next == (ckt->pi[4] * ~ckt->pi[5] * ckt->pi[6]));
   BDD checkval = ckt->pi[0] * ckt->pi[1] * ~ckt->pi[2];
+  verbose_flag = 1;
   BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
+  verbose_flag = 0;
 
   CHECK(!result.IsZero());
   CHECK(checkval == (GetPIs(ckt->getManager(), ckt->dff_io, prev,next) * checkval));

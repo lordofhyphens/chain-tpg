@@ -28,13 +28,35 @@ TEST(TEST_S1238, dffvars)
 {
   CHECK_EQUAL(17, ckt->dff_vars.size());
   CHECK_EQUAL(18, ckt->dff.size());
-  for(auto &k : ckt->dff)
-  {
-    std::cerr << k.first << " " << ckt->at(k.first);
-  }
 }
 
+TEST_GROUP(TEST_S15850)
+{
+  // test our bench reader with s27.bench initially, we can (probably) take 
+  // other formats later.
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  Cudd manager;
 
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/s15850.blif", true);
+    ckt->form_bdds();
+
+    manager = ckt->getManager();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+TEST(TEST_S15850, dffvars)
+{
+  CHECK_EQUAL(597, ckt->dff_vars.size());
+  CHECK_EQUAL(597, ckt->dff.size());
+}
 
 TEST_GROUP(TEST_S27_V)
 {
@@ -283,7 +305,6 @@ TEST(CUDD_Ckt, LoadBlif)
   ckt->read_blif("tests/b01.blif", true);
   ckt->form_bdds();
   CHECK_EQUAL(96, ckt->size());
-  std::cerr << "\nBDD Manager Size " << ckt->getManager().ReadSize() << "\n";
 }
 
 TEST(CUDD_Ckt, TestMintermFromString)

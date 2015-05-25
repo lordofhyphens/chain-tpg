@@ -12,7 +12,17 @@ BDD GetPIs(Cudd manager, std::map<int,BDD> functions, const BDD& prev, const BDD
   {
     BDD current_var = manager.bddVar(iter.first);
     bool do_complement = ((current_var * next).IsZero());
-    result *= (do_complement ? ~(iter.second.Restrict(prev)): iter.second.Restrict(prev) );
+    if (verbose_flag)
+    {
+      std::cerr << "Complement? "<< (do_complement ? "Yes" : "No") << "\n"; 
+      std::cerr << "Constrain = 0: " << (iter.second.Constrain(prev).IsZero() ? "Yes" : "No") << "\n";
+      std::cerr << "!Constrain = 0: " << (!(iter.second).Constrain(prev).IsZero() ? "Yes" : "No") << "\n";
+      std::cerr << "result = 0: " << (result.IsZero() ? "Yes" : "No") << "\n";
+    }
+    // add all terms in the onset 
+    if (do_complement && iter.second.IsComplement())
+      result *= (!(!(iter.second).Constrain(prev).IsZero()) && (do_complement || iter.second.Constrain(prev).IsZero()) ? !(iter.second).Constrain(prev): iter.second.Constrain(prev) );
+    assert(!result.IsZero());
   }
   return std::move(result);
 }
