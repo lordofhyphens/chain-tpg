@@ -32,8 +32,6 @@ TEST(TEST_S1238, dffvars)
 
 TEST_GROUP(TEST_S15850)
 {
-  // test our bench reader with s27.bench initially, we can (probably) take 
-  // other formats later.
   std::unique_ptr<CUDD_Circuit> ckt = nullptr;
   Cudd manager;
 
@@ -57,6 +55,33 @@ TEST(TEST_S15850, dffvars)
   CHECK_EQUAL(597, ckt->dff_vars.size());
   CHECK_EQUAL(597, ckt->dff.size());
 }
+TEST_GROUP(TEST_B15)
+{
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  Cudd manager;
+
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/b15.blif", true);
+    ckt->form_bdds();
+
+    manager = ckt->getManager();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+
+TEST(TEST_B15, dffvars)
+{
+  CHECK_EQUAL(449, ckt->dff_vars.size());
+  CHECK_EQUAL(449, ckt->dff.size());
+}
+
 
 TEST_GROUP(TEST_S27_V)
 {
