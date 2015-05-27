@@ -556,7 +556,7 @@ int main(int argc, char* const argv[])
   if (allrand > 0) {
     for (auto i = 0; i < allrand; i++) {
       BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
-      next = next_img.PickOneMinterm(ckt.dff_vars);
+      next = PickValidMintermFromImage(ckt, next, std::forward<BDD>(next_img));
       chain.push(next);
     }
     quit = true;
@@ -687,7 +687,7 @@ int main(int argc, char* const argv[])
         }
         else 
         {
-          next = next_img.PickOneMinterm(ckt.dff_vars);
+          next = PickValidMintermFromImage(ckt,next,std::forward<BDD>(next_img));
           allterm -= next;
           all_backtracks++;
           backtrack = (backtrack > 0 ? backtrack -1 : 0);
@@ -727,7 +727,7 @@ int main(int argc, char* const argv[])
       {
         chain_images[next.getNode()] = next_img;
       }
-      next = (next_img - visited).PickOneMinterm(ckt.dff_vars);
+      next = PickValidMintermFromImage(ckt,next,std::forward<BDD>((next_img - visited)));
 
       visited += next;
       chain.push(next);
