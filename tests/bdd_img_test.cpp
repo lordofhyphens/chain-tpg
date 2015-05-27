@@ -45,22 +45,37 @@ TEST_GROUP(BDD_Img_Toy)
 TEST_GROUP(BDDIMG_s27)
 {
   std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  std::map<BDD_map_pair,BDD> cache;
   void setup()
   {
     Cudd_Srandom(0);
     ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
-    ckt->read_blif("tests/s27.blif", true);
+    ckt->read_blif("tests/s1238.blif", true);
     ckt->form_bdds();
   }
   void teardown()
   {
     ckt = nullptr;
+    cache.clear();
   }
 };
 TEST(BDDIMG_s27, TestFormBDDs)
 {
   CHECK(ckt->size() > 0);
   CHECK(ckt->getManager().ReadSize() > 0);
+}
+
+TEST(BDDIMG_s27, ConstrainCheck)
+{
+  BDD prev = ckt->get_minterm_from_string("-------0-1010010000-010101--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------");
+  BDD next_expected = ckt->get_minterm_from_string("-------1-1011000100-000010--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------");
+  BDD next_all = img(ckt->dff, ckt->dff_pair, ckt->getManager(), cache);
+  BDD next_const = img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(), cache);
+  BDD next_all_clean = RemoveInvalidMintermFromImage(*ckt, prev, next_const);
+  CHECK(next_all_clean == next_const);
+
+
+  CHECK_TEXT(next_all != next_const, "Constrained img should not equal unconstrained img");
 }
 
 TEST(BDDIMG_s27, RandomCheck)
@@ -70,11 +85,17 @@ TEST(BDDIMG_s27, RandomCheck)
     BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
     BDD next_all = img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(), cache) - prev;
     size_t count = next_all.CountMinterm(ckt->dff.size());
- //   BDD next_all_clean = RemoveInvalidMintermFromImage(*ckt, prev, next_all);
-    BDD next_all_clean = next_all;
+    verbose_flag =1;
+    BDD next_all_clean = RemoveInvalidMintermFromImage(*ckt, prev, next_all);
+    verbose_flag =0;
+
+    prev.PickOneMinterm(ckt->dff_vars).PrintCover();
+    next_all_clean.PickOneMinterm(ckt->dff_vars).PrintCover();
+
+//    BDD next_all_clean = next_all;
     size_t cleancount = next_all_clean.CountMinterm(ckt->dff.size());
     std::cerr << "next minterm " << count << "," << cleancount << " (" <<  next_all.CountMinterm(ckt->dff.size()) << ")" << "\n";
-    CHECK_EQUAL(count, cleancount);
+    CHECK_EQUAL(cleancount, count);
   }
 }
 
