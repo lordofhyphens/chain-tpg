@@ -1,33 +1,29 @@
 #include "getpis.h"
 
-BDD GetPIs(Cudd manager, std::map<int,BDD> functions, const BDD& prev, const BDD& next)
-{
-  assert (functions.size() > 0);
-  BDD result = manager.bddOne();
-  if (next.IsZero()) return next;
-  if (prev.IsZero()) return prev;
-  if (next.IsOne() && prev.IsOne()) return next;
+// GetPIs algorithm
+// Combine the BDDs for all functions in the ckt, inverting as necessary to get the
+// correct on-set. 
+// 
+ BDD GetPIs(Cudd manager,  std::map<int,BDD> functions, const BDD& prev, const BDD& next)
+ {
+   assert (functions.size() > 0);
+   BDD result = manager.bddOne();
+   if (next.IsZero()) return next;
+   if (prev.IsZero()) return prev;
+   if (next.IsOne() && prev.IsOne()) return next;
 
-  for (auto& iter : functions)
-  {
-    BDD current_var = manager.bddVar(iter.first);
-    bool do_complement = ((current_var * next).IsZero());
-    if (verbose_flag)
-    {
-      std::cerr << "Complement? "<< (do_complement ? "Yes" : "No") << "\n"; 
-      std::cerr << "Constrain = 0: " << (iter.second.Constrain(prev).IsZero() ? "Yes" : "No") << "\n";
-      std::cerr << "!Constrain = 0: " << (!(iter.second).Constrain(prev).IsZero() ? "Yes" : "No") << "\n";
-      std::cerr << "result = 0: " << (result.IsZero() ? "Yes" : "No") << "\n";
-    }
-    // add all terms in the onset 
-    if (do_complement && iter.second.IsComplement())
-      result *= (!(!(iter.second).Constrain(prev).IsZero()) && (do_complement || iter.second.Constrain(prev).IsZero()) ? !(iter.second).Constrain(prev): iter.second.Constrain(prev) );
-    assert(!result.IsZero());
-  }
-  return std::move(result);
-}
-
-// get just one minterm
+   for (auto& iter : functions)
+   {
+     BDD current_var = manager.bddVar(iter.first);
+     bool do_complement = (next < ~current_var) && !(next < current_var);
+     if (result == manager.bddOne())
+       result = do_complement ? ~(iter.second.Constrain(prev)): iter.second.Constrain(prev);
+     else
+       result = result.Intersect(do_complement ? ~(iter.second.Constrain(prev)): iter.second.Constrain(prev) );
+     result = result.Cofactor(current_var) + result.Cofactor(~current_var);
+   }
+   return std::move(result);
+ }// get just one minterm
 BDD GetPI(Cudd manager, std::map<int,BDD> functions, std::map<int, BDD> vars, const BDD& prev, const BDD& next)
 {
   return GetPIs(manager, functions, prev,next).PickOneMinterm(getVector(manager, vars));
