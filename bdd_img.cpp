@@ -84,8 +84,7 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
       {
         n.second = n.second.Cofactor(p);
       }
-
-      cache[BDD_map_pair(f,p)] = _img(v, mapping, manager, cache, split+1);
+      cache.emplace(std::make_pair(BDD_map_pair(f,p), _img(v, mapping, manager, cache, split+1)));
     }
     else
       if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
@@ -96,11 +95,13 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
       {
         n.second = n.second.Cofactor(~p);
       }
-      cache[BDD_map_pair(f,~p)] = _img(vn, mapping, manager, cache, split+1);
+      cache.emplace(std::make_pair(BDD_map_pair(f,~p), _img(vn, mapping, manager, cache, split+1)));
     }
     else
+    {
       if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
-    return cache[BDD_map_pair(f,p)] + cache[BDD_map_pair(f,~p)];
+    }
+    return cache.at(BDD_map_pair(f,p)) + cache.at(BDD_map_pair(f,~p));
   }
 }
 // Expansion via input splitting The image of F w/r/t is the union of the image
