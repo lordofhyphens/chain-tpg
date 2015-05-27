@@ -13,6 +13,12 @@
 #include <cuddInt.h>
 #include <cuddObj.hh>
 
+#include "cudd_ckt.h"
+
+// picks a minterm that actually has PIs. Modifies the image BDD (to make things faster next time).
+BDD PickValidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD&& next_all);
+BDD RemoveInvalidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD&& next_all);
+BDD RemoveInvalidMintermFromImage(Cudd manager, std::vector<BDD> dff_vars, std::map<int,BDD> dff_io, const BDD& prev, BDD&& next_all);
 
 BDD PickOneMintermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars, std::function<long double(long double, long double)> dist,std::map<int,int> reorder = std::map<int,int>());
 template <class T>

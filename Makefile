@@ -9,7 +9,7 @@ CUDDFLAGS:=-I$(CUDD)/include
 CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include 
 CPPUTEST_LIBS:=-lCppUTest -lCppUTestExt
 
-objs=getpis.o bdd_img.o explore.o cudd_ckt.o
+objs=getpis.o bdd_util.o bdd_img.o explore.o cudd_ckt.o
 TEST=$(foreach test,$(objs:.o=_test.cpp) AllTests.cpp,tests/${test})
 CPPFLAGS:=$(CUDDFLAGS) -Iutil  
 CXXFLAGS:= -O3 -mtune=native $(shell $$CXXFLAGS) -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8 -DCPU -g -Wall -std=c++11 -march=native -fopenmp $(CPPUTEST_FLAGS)

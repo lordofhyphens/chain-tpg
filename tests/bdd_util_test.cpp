@@ -1,5 +1,6 @@
 #include "../bdd_util.h"
 #include "../bdd_img.h"
+#include "../cudd_ckt.h"
 #include <algorithm>
 #include <deque>
 #include <map>
@@ -9,6 +10,40 @@
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
+TEST_GROUP(Ckt_BDD_Util)
+{
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  Cudd manager;
+  std::map<BDD_map_pair, BDD> cache;
+
+  void setup()
+  {
+
+    cache = std::map<BDD_map_pair, BDD>();
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/b15.blif", true);
+    ckt->form_bdds();
+
+    manager = ckt->getManager();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+    cache.clear();
+  }
+
+};
+
+TEST(Ckt_BDD_Util, PickValidMinterm)
+{
+  BDD prev = img(ckt->dff, ckt->dff_pair, ckt->getManager(),cache);
+  BDD next_all = img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(),cache);
+  verbose_flag = 1;
+  BDD next = PickValidMintermFromImage(*ckt, prev, std::forward<BDD>(next_all));
+  verbose_flag = 0;
+  CHECK(!next.IsZero());
+}
 
 TEST_GROUP(BDD_Util)
 {
