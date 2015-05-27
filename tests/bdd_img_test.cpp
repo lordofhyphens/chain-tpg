@@ -1,5 +1,6 @@
 #include "../bdd_img.h"
 #include "../cudd_ckt.h"
+#include "../bdd_util.h"
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
@@ -60,6 +61,17 @@ TEST(BDDIMG_s27, TestFormBDDs)
 {
   CHECK(ckt->size() > 0);
   CHECK(ckt->getManager().ReadSize() > 0);
+}
+
+TEST(BDDIMG_s27, RandomCheck)
+{
+  for (int i = 0; i < 32; i++) {
+    BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+    BDD next_all = img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(), cache) - prev;
+    size_t count = next_all.CountMinterm(ckt->dff.size());
+    BDD next_all_clean = RemoveInvalidMintermFromImage(*ckt, prev, std::forward<BDD>(next_all));
+    CHECK_EQUAL(count, next_all_clean.CountMinterm(ckt->dff.size()));
+  }
 }
 
 TEST_GROUP(BDD_Img)
