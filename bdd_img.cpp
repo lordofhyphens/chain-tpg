@@ -84,18 +84,18 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
       {
         n.second = n.second.Cofactor(p);
       }
-      cache.emplace(std::make_pair(BDD_map_pair(f,p), _img(v, mapping, manager, cache, split+1)));
+      cache.insert(std::make_pair(BDD_map_pair(f,p), _img(v, mapping, manager, cache, split+1)));
     }
     else
       if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
     // try to cache previously-found results
     if (cache.count(BDD_map_pair(f,~p)) == 0)
     {
-      for (auto& n : v)
+      for (auto& n : vn)
       {
         n.second = n.second.Cofactor(~p);
       }
-      cache.emplace(std::make_pair(BDD_map_pair(f,~p), _img(vn, mapping, manager, cache, split+1)));
+      cache.insert(std::make_pair(BDD_map_pair(f,~p), _img(vn, mapping, manager, cache, split+1)));
     }
     else
     {

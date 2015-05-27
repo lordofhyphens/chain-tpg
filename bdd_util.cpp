@@ -15,7 +15,7 @@
 #include "bdd_util.h"
 
 #include "getpis.h"
-BDD PickValidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD&& next_all)
+BDD PickValidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD next_all)
 {
   size_t i = 0;
   BDD next = next_all.PickOneMinterm(ckt.dff_vars);
@@ -30,34 +30,30 @@ BDD PickValidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD&& next_all)
     }
   }
   
-  return std::move(next);
+  return next;
 }
-BDD RemoveInvalidMintermFromImage(Cudd manager, std::vector<BDD> dff_vars, std::map<int,BDD> dff_io, const BDD& prev, BDD&& next_all)
+BDD RemoveInvalidMintermFromImage(Cudd manager, const std::vector<BDD>& dff_vars, const std::map<int,BDD>& dff_io, const BDD& prev, BDD next_all)
 {
   size_t i = 0;
-  BDD result = next_all;
   BDD next = next_all.PickOneMinterm(dff_vars);
+  BDD result = manager.bddZero();
   while (!next_all.IsZero())
   {
-    if (!GetPIs(manager, dff_io, prev,next).IsZero())
-    {
+    if (!(GetPIs(manager, dff_io,prev,next).IsZero()))
       result += next;
-    }
+        if(verbose_flag)  
+          i++;
     next_all -= next;
     next = next_all.PickOneMinterm(dff_vars);
-    if(verbose_flag)  
-    {
-      i++;
-    }
   }
   if(verbose_flag)  
     std::cerr << "Removed " << i << " minterms.\n";
   
-  return std::move(result);
+  return BDD(result);
 }
 
-BDD RemoveInvalidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD&& next_all) {
-  return RemoveInvalidMintermFromImage(ckt.getManager(), ckt.dff_vars, ckt.dff_io, prev, std::forward<BDD>(next_all));
+BDD RemoveInvalidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all) {
+  return RemoveInvalidMintermFromImage(ckt.getManager(), ckt.dff_vars, ckt.dff_io, prev, next_all);
 }
 extern int verbose_flag;
 BDD PickOneMintermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars, std::function<long double(long double, long double)> dist,std::map<int,int> reorder) 

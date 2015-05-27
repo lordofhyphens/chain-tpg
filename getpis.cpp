@@ -20,9 +20,8 @@
        result = do_complement ? ~(iter.second.Constrain(prev)): iter.second.Constrain(prev);
      else
        result = result.Intersect(do_complement ? ~(iter.second.Constrain(prev)): iter.second.Constrain(prev) );
-     result = result.Cofactor(current_var) + result.Cofactor(~current_var);
    }
-   return std::move(result);
+   return result;
  }// get just one minterm
 BDD GetPI(Cudd manager, std::map<int,BDD> functions, std::map<int, BDD> vars, const BDD& prev, const BDD& next)
 {
