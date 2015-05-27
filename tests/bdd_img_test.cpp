@@ -1,9 +1,33 @@
 #include "../bdd_img.h"
-#include "../cudd_ckt.h"
-#include "../bdd_util.h"
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
+TEST_GROUP(Sandbox){
+  Cudd* manager;
+  std::map<int, BDD> vars;
+  std::map<int, int> mapping;
+  std::map<int, BDD> funcs;
+  std::map<BDD_map_pair, BDD> cache;
 
+  void setup(){
+  manager = new Cudd();
+  vars[0] = BDD(manager->bddVar(0));
+  vars[1] = BDD(manager->bddVar(1));
+
+  for(int i = 0; i < 2; i++){
+    mapping[i] = i;
+  }
+
+  funcs[0] = vars[0] + ~vars[1];
+  funcs[1] = !(vars[0] + ~vars[1]);
+  }
+
+  void teardown(){
+  vars.clear();
+  funcs.clear();
+  cache.clear();
+  delete manager;
+  }
+};
 TEST_GROUP(BDD_Img_Toy)
 {
   Cudd* manager;
@@ -38,33 +62,9 @@ TEST_GROUP(BDD_Img_Toy)
     vars.clear();
     funcs.clear();
     cache.clear();
-    mapping.clear();
     delete manager;
   }
 };
-TEST_GROUP(BDDIMG_s27)
-{
-  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
-  std::map<BDD_map_pair,BDD> cache;
-  void setup()
-  {
-    Cudd_Srandom(0);
-    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
-    ckt->read_blif("tests/s1238.blif", true);
-    ckt->form_bdds();
-  }
-  void teardown()
-  {
-    ckt = nullptr;
-    cache.clear();
-  }
-};
-TEST(BDDIMG_s27, TestFormBDDs)
-{
-  CHECK(ckt->size() > 0);
-  CHECK(ckt->getManager().ReadSize() > 0);
-}
-
 TEST(BDDIMG_s27, ConstrainCheck)
 {
   BDD prev = ckt->get_minterm_from_string("-------0-1010010000-010101--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------");
@@ -77,7 +77,23 @@ TEST(BDDIMG_s27, ConstrainCheck)
 
   CHECK_TEXT(next_all != next_const, "Constrained img should not equal unconstrained img");
 }
-
+TEST(Identical_Components, Prev000){
+  BDD prev = !vars[0] * !vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  // printf("prev = 00\n");
+  // printf("image minterm count: %d\n", result.CountMinterm(funcs.size()));
+  // printf("image.printminterms(): ");
+  // result.PrintMinterm();
+  // printf("image.printcover(): ");
+  // result.PrintCover();
+  CHECK_TRUE(result == result2);
+}
+TEST(Sandbox, ComplementaryComponents00){
+  BDD prev = !vars[0] * !vars[1];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
+}
 TEST(BDDIMG_s27, RandomCheck)
 {
   std::cerr << "\n";
@@ -98,7 +114,52 @@ TEST(BDDIMG_s27, RandomCheck)
     CHECK_EQUAL(cleancount, count);
   }
 }
+TEST(Sandbox, ComplementaryComponents01){
+  BDD prev = !vars[0] * vars[1];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  DOUBLES_EQUAL(1, result.CountMinterm(funcs.size()), 0.1);
+}
+TEST(Identical_Components, Prev010){
+  BDD prev = !vars[0] * vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
 
+TEST(Identical_Components, Prev011){
+  BDD prev = !vars[0] * vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev100){
+  BDD prev = vars[0] * !vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev101){
+  BDD prev = vars[0] * !vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev110){
+  BDD prev = vars[0] * vars[1] * !vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
+
+TEST(Identical_Components, Prev111){
+  BDD prev = vars[0] * vars[1] * vars[2];
+  BDD result = img(funcs, mapping, prev, *manager, cache);
+  BDD result2 = img(funcs2, mapping, prev, *manager, cache);
+  CHECK_TRUE(result == result2);
+}
 TEST_GROUP(BDD_Img)
 {
   Cudd* manager;

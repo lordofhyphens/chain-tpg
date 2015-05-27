@@ -1,0 +1,12 @@
+.
+cudd/cudd
+cudd/dddmp
+cudd/epd
+cudd/include
+cudd/mnemosyne
+cudd/mtr
+cudd/nanotrav
+cudd/sis
+cudd/st
+cudd/util
+util
