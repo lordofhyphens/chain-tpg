@@ -12,15 +12,6 @@
 // STL
 #include <map>
 
-//TEST(GetPIs_s1238, TestA)
-//{
-//  BDD prev = ckt->get_minterm_from_string("-------1-1111010100-1100100-----");
-//  BDD next = ckt->get_minterm_from_string("-------0-1011101000-1110110-----");
-//  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
-//
-//  CHECK(!result.IsZero());
-//}
-//
 TEST_GROUP(GetPIs_s15850)
 {
   CUDD_Circuit* ckt = nullptr;
@@ -38,19 +29,7 @@ TEST_GROUP(GetPIs_s15850)
   }
 };
 
-TEST(GetPIs_s15850, RandomImg)
-{
-  std::map<BDD_map_pair, BDD> cache;
-  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
-  CHECK(!(prev.IsZero()));
-  BDD next = (img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
-  CHECK(!(next.IsZero()) && !(next.IsOne()));
-  verbose_flag = 1;
-  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
-  verbose_flag = 0;
 
-  CHECK(!(result.IsZero()));
-}
 
 
 TEST_GROUP(GetPIs_s1196)
@@ -70,14 +49,26 @@ TEST_GROUP(GetPIs_s1196)
   }
 };
 
-TEST(GetPIs_s1196, TestA)
+TEST(GetPIs_s1196, RandomImg)
 {
-  BDD prev = ckt->get_minterm_from_string("0111110-1----------1------10100--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------");
-  BDD next = ckt->get_minterm_from_string("0001110-0----------0------00111--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------");
+  std::map<BDD_map_pair, BDD> cache;
+  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  CHECK(!(prev.IsZero()));
+  BDD next_all = img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(), cache) - prev;
+  BDD next = next_all.PickOneMinterm(ckt->dff_vars);
+  int z = 0;
+  while(GetPIs(ckt->getManager(), ckt->dff_io, prev,next).IsZero() && !(next_all.IsZero())) {
+    next_all -= next;
+    next = next_all.PickOneMinterm(ckt->dff_vars);
+    z++; 
+  }
   BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
+  verbose_flag = 0;
 
-  CHECK(!result.IsZero());
+  CHECK(!(result.IsZero()));
+  std::cerr << "Cycled through " << z << " fake next-states.\n";
 }
+
 TEST_GROUP(GetPIs_FromCkt)
 {
   CUDD_Circuit* ckt = nullptr;
