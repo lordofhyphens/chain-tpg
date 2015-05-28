@@ -5,12 +5,15 @@
 	#define __gnu_parallel std 
 #endif
 
+using mapping_t = std::map<int,int>;
+using imgcache_t = std::map<BDD_map_pair, BDD>;
+using dffs_t = std::map<int,BDD>;
 extern int verbose_flag;
-BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
-BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager,std::map<BDD_map_pair, BDD>& cache, const int split = 0);
+BDD _img(const dffs_t f, mapping_t mapping, Cudd manager, imgcache_t& cache, const int split = 0);
+BDD _img(const dffs_t f, mapping_t mapping, const BDD& C, Cudd manager,imgcache_t& cache, const int split = 0);
 
 
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager, std::map<BDD_map_pair, BDD>& cache,const int split)
+BDD img(const dffs_t f, mapping_t mapping, const BDD& C, Cudd manager, imgcache_t& cache, const int split)
 {
   manager.AutodynDisable();
   auto result = _img(f, mapping, C, manager, cache, split);
@@ -19,7 +22,7 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cu
   return result;
 
 }
-BDD img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split)
+BDD img(const BDD_map f, mapping_t mapping, Cudd manager, imgcache_t& cache, const int split)
 {
   BDD result;
 
@@ -29,7 +32,7 @@ BDD img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_
   manager.AutodynEnable(CUDD_REORDER_SAME);
   return result;
 }
-BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split)
+BDD _img(const BDD_map f, mapping_t mapping, Cudd manager, imgcache_t& cache, const int split)
 {
   // mapping is needed to match output functions to input variables when generating
   // next-state.
@@ -54,7 +57,7 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
     for (auto& k : f)
     {
       if (Cudd_IsConstant(k.second.getNode())) {
-        if (k.second == manager.bddOne())
+        if (k.second.IsOne())
         {
           constant_terms *= (manager.bddVar(mapping[k.first]));
         }
@@ -77,31 +80,19 @@ BDD _img(const BDD_map f, std::map<int, int> mapping, Cudd manager, std::map<BDD
     if (verbose_flag) 
       std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(split) << "\n";
     BDD p = manager.ReadVars(split);
-    if (cache.count(BDD_map_pair(f,p)) == 0)
+    // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
+    for (auto& n : v)
     {
-      // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
-      for (auto& n : v)
-      {
-        n.second = n.second.Cofactor(p);
-      }
-      cache.insert(std::make_pair(BDD_map_pair(f,p), _img(v, mapping, manager, cache, split+1)));
+      n.second = n.second.Cofactor(p);
     }
-    else
-      if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
+    BDD pcf = _img(v, mapping, manager, cache, split+1);
     // try to cache previously-found results
-    if (cache.count(BDD_map_pair(f,~p)) == 0)
+    for (auto& n : vn)
     {
-      for (auto& n : vn)
-      {
-        n.second = n.second.Cofactor(~p);
-      }
-      cache.insert(std::make_pair(BDD_map_pair(f,~p), _img(vn, mapping, manager, cache, split+1)));
+      n.second = n.second.Cofactor(~p);
     }
-    else
-    {
-      if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
-    }
-    return cache.at(BDD_map_pair(f,p)) + cache.at(BDD_map_pair(f,~p));
+    BDD ncf = _img(vn, mapping, manager, cache, split+1);
+    return pcf + ncf;
   }
 }
 // Expansion via input splitting The image of F w/r/t is the union of the image
@@ -127,9 +118,9 @@ BDD _img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, C
   return _img(v, mapping, manager, cache);
 
 }
-bool isConstant(const std::pair<int, BDD>& f) {
-  return (Cudd_IsConstant(f.second.getNode()) == 1);
-}
+
+bool isConstant(const std::pair<int, BDD>& f) { return (f.second.IsOne() || f.second.IsZero()); }
+
 // Behaviour: Variable 1 becomes variable 2, ... while variable N becomes a dontcare
 // Variable order is in terms of the integer order, not the current BDD ordering.
 // List of vars to shift is in vars
@@ -237,11 +228,12 @@ BDD RightShift(const Cudd& manager, const BDD& dd)
   return result;
 }
 
-BDD chain_t::pop()
+std::pair<BDD,BDD> chain_t::pop()
 { 
-    auto temp = data.back();
+    auto temp = make_pair(pis.back(), data.back());
     data.pop_back();
-    if (std::find(data.begin(),data.end(), temp) == data.end())
+    pis.pop_back();
+    if (std::find(data.begin(),data.end(), std::get<1>(temp)) == data.end())
       size -= 1;
     return temp;
-  }
+}
