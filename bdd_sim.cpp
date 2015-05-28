@@ -12,7 +12,7 @@ simout_t bddsim(CUDD_Circuit& ckt, const BDD& state, const BDD& inp)
   for (auto& ff : ckt.dff_io)
   {
     result.first *= (ff.second.Constrain(state).Constrain(inp).IsZero() ? ~(ckt.getManager().bddVar(ff.first)) : ckt.getManager().bddVar(ff.first)) ;
-    std::cerr << ff.first << "\n";
+    //std::cerr << ff.first << "\n";
   }
   // untested!!
   for (auto& ff : ckt.dff_io)
