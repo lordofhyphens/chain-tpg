@@ -21,3 +21,19 @@ simout_t bddsim(CUDD_Circuit& ckt, const BDD& state, const BDD& inp)
   return result;
 }
 
+std::ostream& PrintPOs(std::map<int,bool> po, std::ostream& out)
+{
+  for (auto& z : po)
+    out << (z.second ? "1" : "0");
+  out << "\n";
+  return out;
+}
+BDD random_pis(CUDD_Circuit& ckt) 
+{
+  BDD result = ckt.getManager().bddOne();
+  for (auto& pi : ckt.pi)
+  {
+   result *= (rand() % 2 ? ckt.getManager().bddVar(pi.first) : ~ckt.getManager().bddVar(pi.first));
+  }
+  return result;
+}
