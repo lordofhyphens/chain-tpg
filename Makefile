@@ -9,7 +9,10 @@ CUDDFLAGS:=-I$(CUDD)/include
 CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include 
 CPPUTEST_LIBS:=-lCppUTest -lCppUTestExt
 
-objs=getpis.o bdd_sim.o bdd_util.o bdd_img.o explore.o cudd_ckt.o
+objs=getpis.o bdd_sim.o bdd_util.o bdd_img.o cudd_ckt.o
+explore_objs=${objs} explore.o
+mutate_objs=${objs} mutate.o
+sim_objs=${objs} sim.o
 TEST=$(foreach test,$(objs:.o=_test.cpp) AllTests.cpp,tests/${test})
 CPPFLAGS:=$(CUDDFLAGS) -Iutil  
 CXXFLAGS:= -O3 -mtune=native $(shell $$CXXFLAGS) -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8 -DCPU -g -Wall -std=c++11 -march=native -fopenmp $(CPPUTEST_FLAGS)
@@ -20,13 +23,26 @@ CXX=clang++
 .PHONY: all test clean
 .SUFFIXES: cc c cpp
 
-explore: $(objs)
+explore: $(explore_objs)
+	echo $(LIBS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $^ -o $@ $(LIBS)
+
+mutate: $(mutate_objs)
+	echo $(LIBS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $^ -o $@ $(LIBS)
+
+sim: $(sim_objs)
 	echo $(LIBS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $^ -o $@ $(LIBS)
 
 explore.o: explore.cpp cudd_ckt.h bdd_img.h 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	
+sim.o: sim.cpp cudd_ckt.h bdd_img.h 
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+mutate.o: mutate.cpp cudd_ckt.h bdd_img.h 
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
 bdd_img.o: bdd_img.cpp bdd_img.h cudd_ckt.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS)  -c $< -o $@
 bdd_util.o: bdd_util.cpp bdd_util.h cudd_ckt.h
@@ -46,7 +62,7 @@ $(CUDD)/Makefile:
 	git submodule init
 	git submodule update
 clean: 
-	rm -f explore *.o tests/*.o testsuite
+	rm -f mutate sim explore *.o tests/*.o testsuite
 
 AllTests.o: $(TEST)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(CPPUTEST_FLAGS) -c $^ -o $@
