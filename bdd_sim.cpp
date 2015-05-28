@@ -33,7 +33,8 @@ BDD random_pis(CUDD_Circuit& ckt)
   BDD result = ckt.getManager().bddOne();
   for (auto& pi : ckt.pi)
   {
-   result *= (rand() % 2 ? ckt.getManager().bddVar(pi.first) : ~ckt.getManager().bddVar(pi.first));
+    if (ckt.getManager().bddIsNsVar(pi.first) == 0)
+      result *= (rand() % 2 ? ckt.getManager().bddVar(pi.first) : ~ckt.getManager().bddVar(pi.first));
   }
   return result;
 }
