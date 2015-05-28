@@ -26,6 +26,9 @@
 #include <random>
 #include <ctime>
 using std::get;
+using std::stoi;
+using std::stof;
+using std::stod;
 
 
 float MAX_TIME = 3600000; // in ms 
