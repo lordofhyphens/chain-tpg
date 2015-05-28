@@ -10,6 +10,7 @@
 #include <iostream>
 using BDD_map = std::map<int, BDD>;
 using BDD_map_pair = std::pair<BDD_map, BDD>;
+using std::make_pair;
 
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
 BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager,std::map<BDD_map_pair, BDD>& cache, const int split = 0);
@@ -17,14 +18,16 @@ BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cu
 struct chain_t
 {
   std::vector<BDD> data;
+  std::vector<BDD> pis;
+  BDD initial; 
   BDD last; // combined BDD of the last N minterms in the chain
-  BDD back() const { return data.back(); }
-  BDD back() { return data.back(); }
+  std::pair<BDD,BDD> back() const { if (size >  0) return make_pair(pis.back(), data.back()); else return make_pair(initial,initial); }
+  std::pair<BDD,BDD> back() { if (size >  0) return make_pair(pis.back(), data.back()); else return make_pair(initial,initial); }
   int size;
   chain_t() : size(0) {}
-  inline void push_empty(const BDD& i) { data.push_back(i); }
-  inline void push(const BDD& i) { data.push_back(i); size+=1; }
-  BDD pop();
+  inline void push_empty(const BDD&i, const BDD& j) { pis.push_back(i); data.push_back(j); }
+  inline void push(const BDD&i, const BDD& j) { pis.push_back(i); data.push_back(j); size+=1; }
+  std::pair<BDD,BDD> pop();
 
   
   inline void clear() {size = 0; data.clear(); }

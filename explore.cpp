@@ -25,6 +25,7 @@
 
 #include <random>
 #include <ctime>
+using std::get;
 
 
 float MAX_TIME = 3600000; // in ms 
@@ -291,6 +292,7 @@ int main(int argc, char* const argv[])
   int simulate_flag = 0;
   int do_backtrack = 1;
   int allrand = 0;
+  std::string initial_state = "";
   int nolink = 0;
   float taken_time = 0;
   int option_index = 0;
@@ -310,7 +312,6 @@ int main(int argc, char* const argv[])
   while (1)
   {
     std::string max_time_str, max_length_str;
-    std::string::size_type sz;     // alias of size_t
     static struct option long_options[] =
     {
       /* These options set a flag. */
@@ -331,6 +332,7 @@ int main(int argc, char* const argv[])
       {"time",     required_argument,       0, 't'},
       {"mutants",     required_argument,       0, 'm'},
       {"length",     required_argument,       0, 'l'},
+      {"initial",     required_argument,       0, 'i'},
       {0, 0}
     };
     /* getopt_long stores the option index here. */
@@ -378,7 +380,12 @@ int main(int argc, char* const argv[])
         printf("\t--time max : Maximum time to run simulation in msec.\n");
         printf("\t--length max: Maximum length of chain to generate.\n");
         printf("\t--help : This dialog.\n");
+        printf("\t--mutants count : Generate <count> mutants randomly\n");
+        printf("\t--initial <state> : Initial state, same order as ckt.print().\n");
         exit(1);
+        break;
+      case 'i':
+        initial_state = std::string(optarg);
         break;
       case 't':
         max_time_str = std::string(optarg);
@@ -538,11 +545,14 @@ int main(int argc, char* const argv[])
   BDD next; 
 
   BDD avoid = ckt.getManager().bddZero();
-  next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
 
   unsigned int all_backtracks = 0;
 
-  chain.push_empty(next);
+  if (initial_state == "")
+    next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
+  else 
+    next = ckt.get_minterm_from_string(initial_state);
+  chain.initial = next;
   allterm -= next;
   BDD visited = next;
   BDD deadends = ckt.getManager().bddZero();
@@ -556,8 +566,9 @@ int main(int argc, char* const argv[])
   if (allrand > 0) {
     for (auto i = 0; i < allrand; i++) {
       BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
-      next = PickValidMintermFromImage(ckt, next, std::forward<BDD>(next_img));
-      chain.push(next);
+      next = PickValidMintermFromImage(ckt, next, next_img);
+      BDD pi = GetPIs(ckt.getManager(), ckt.dff_io, std::get<1>(chain.back()), next);
+      chain.push(pi, next);
     }
     quit = true;
   }
@@ -584,6 +595,7 @@ int main(int argc, char* const argv[])
   do
   {
     BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
+    BDD prev = next;
     next_img -= avoid;
     next_img -= deadends;
     if  ((next_img- visited).CountMinterm(ckt.dff.size()) == 1)
@@ -652,17 +664,7 @@ int main(int argc, char* const argv[])
             if (verbose_flag)
               std::cerr << __FILE__ << ": " <<"Found a non-empty image. " <<(item->second - visited).CountMinterm(ckt.dff.size()) << "minterms." << "\n";
             if ((item->second - visited).CountMinterm(ckt.dff.size()) == 0 || chain_images.size() == 0) {
-              if (verbose_flag)
-                std::cerr << __FILE__ << ": " <<__FILE__ << ":" << "Picking from another initial state."<<"\n"; 
-              if (single_chain)
-              {
-                next = ckt.getManager().bddOne();
-                continue;
-              } 
-              next = (possible-visited).PickOneMinterm(ckt.dff_vars);
-              visited += next;
-              allterm -= next;
-              chain.push_empty(next);
+              next = ckt.getManager().bddOne();
               continue;
             }
 
@@ -675,7 +677,7 @@ int main(int argc, char* const argv[])
           }
           else
           {
-            next = chain.back();
+            next = get<1>(chain.back());
             backtrack++;
 
             taken_time = elapsed(start);
@@ -687,7 +689,7 @@ int main(int argc, char* const argv[])
         }
         else 
         {
-          next = PickValidMintermFromImage(ckt,next,std::forward<BDD>(next_img));
+          next = PickValidMintermFromImage(ckt,next,next_img);
           allterm -= next;
           all_backtracks++;
           backtrack = (backtrack > 0 ? backtrack -1 : 0);
@@ -714,7 +716,8 @@ int main(int argc, char* const argv[])
       while (!quit && next == ckt.getManager().bddZero() && taken_time < MAX_TIME );
       if (quit || taken_time >= MAX_TIME) continue;
       allterm -= next;
-      chain.push_empty(next);
+      BDD pi = GetPIs(ckt.getManager(), ckt.dff_io, std::get<1>(chain.back()), next);
+      chain.push_empty(pi, next);
     }
     else
     {
@@ -727,10 +730,11 @@ int main(int argc, char* const argv[])
       {
         chain_images[next.getNode()] = next_img;
       }
-      next = PickValidMintermFromImage(ckt,next,std::forward<BDD>((next_img - visited)));
+      next = PickValidMintermFromImage(ckt, prev,(next_img - visited));
 
       visited += next;
-      chain.push(next);
+      BDD pi = GetPIs(ckt.getManager(), ckt.dff_io, std::get<1>(chain.back()), next);
+      chain.push(pi, next);
     }
     if (verbose_flag)
       std::cerr << __FILE__ << ": " <<"Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
@@ -738,7 +742,7 @@ int main(int argc, char* const argv[])
       std::cerr << __FILE__ << ": " <<"chain_image: " << chain_images.size() << "\n";
     taken_time = elapsed(start);
   }
-  while (!quit && next != ckt.getManager().bddOne() && taken_time < MAX_TIME && chain.size < MAX_LENGTH ); // only using a single initial state, abort after MAX_TIME
+  while (!quit && !(next.IsOne()) && taken_time < MAX_TIME && chain.size < MAX_LENGTH ); // only using a single initial state, abort after MAX_TIME
   in_loop = false;
   if (taken_time >= MAX_TIME || quit) {
     taken_time = elapsed(start);
@@ -816,28 +820,27 @@ int main(int argc, char* const argv[])
   *stdout = *fopen((infile + "-chain.txt").c_str(),"w");  // redirect stdout to null
   for (auto &p : all_chains)
   {
-    for (size_t i = 0; i < p.data.size(); i+=2)
+    for (auto pi : p.pis)
     {
-      auto ins = GetPIs(ckt.getManager(), ckt.dff_io, p.data[i], p.data[i+1]);
-      if (ins.IsZero())
-      {
-        std::cout << "|GetPIs returned constant 0 for ";
-        p.data[i].PrintCover();
-        p.data[i+1].PrintCover();
-        std::cout << "|\n";
-      }
-      else
-        ins.PickOneMinterm(ckt.pi_vars).PrintCover();
+      pi.PickOneMinterm(ckt.pi_vars).PrintCover();
     }
   }
   *stdout = *fopen((infile + "-chain-s.txt").c_str(),"w");  // redirect stdout to null
   for (auto &p : all_chains)
   {
-    for (size_t i = 0; i < p.data.size(); i+=1)
+    p.initial.PrintCover();
+    for (auto ps : p.data)
     {
-        p.data[i].PickOneMinterm(ckt.pi_vars).PrintCover();
+        ps.PrintCover();
     }
   }
+
+  std::fstream outstream((infile + "-order-s.txt").c_str()); 
+  for (auto i = 0; i < ckt.getManager().ReadSize(); i++)
+  {
+    outstream << ckt.getManager().ReadInvPerm(i)<< " " ;
+  }
+  outstream << "\n";
   *stdout=fp_old;  // restore stdout
   std::cerr << "Wrote links to " << (infile + "-chain.txt") << "\n";
   link_time = elapsed(start);
