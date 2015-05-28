@@ -220,54 +220,6 @@ BDD traverse_single(Cudd manager, BDD root, int i, int nvars)
 
 }
 
-
-BDD simulate(CUDD_Circuit& ckt, BDD curr_state) 
-{
-  // Make a BDD by evaluating every next-state function with curr_state and every combination of the inputs
-  assert(curr_state.CountMinterm(ckt.dff.size()) == 1); // only valid for a single current-state bdd
-
-  BDD result_minterm = ckt.getManager().bddZero();
-  // iterate over every combination
-  BDD used_inputs = ckt.getManager().bddZero();
-  if (verbose_flag)
-  std::cerr << __FILE__ << ": " <<"pis: " << ckt.pi_vars.size() << "\n";
-  for (int i  = 0; i < ckt.getManager().bddOne().CountMinterm(ckt.pi_vars.size()); i++)
-  {
-    BDD minterm = ckt.getManager().bddOne(); // form a minterm for this combination from all inputs
-    BDD input_terms = (ckt.getManager().bddOne() - used_inputs).PickOneMinterm(ckt.pi_vars);
-    used_inputs += input_terms;
-    BDD cs = curr_state * input_terms;
-    DdNode* cs_node = cs.getNode();
-    int* cs_input = new int[255];
-    for (int k = 0; k < 255; k++)
-      cs_input[k] = 3;
-
-    Cudd_BddToCubeArray(ckt.getManager().getManager(), cs_node, cs_input);
-    if (verbose_flag)
-    {
-      for (int k = 0; k < 10; k++)
-      {
-        if (cs_input[k] < 3)
-          std::cerr << __FILE__ << ": " <<cs_input[k];
-      }
-      std::cerr <<"\n";
-    }
-    for (std::map<int,BDD>::iterator dff = ckt.dff.begin(); dff != ckt.dff.end(); dff++)
-    {
-      BDD thisvar = ckt.getManager().bddVar(ckt.dff_pair[dff->first]);
-      if (dff->second.Eval(cs_input) == ckt.getManager().bddOne())
-        minterm *= thisvar;
-      else 
-        minterm *= !thisvar;
-    }
-    delete cs_input;
-    result_minterm += minterm;
-  }
-  return result_minterm;
-}
-
-
-
 struct SizeCompare {
   bool operator() (std::pair<std::vector<BDD>, int> i, std::pair<std::vector<BDD>, int> j) { return i.second < j.second;}
 } myobj;
