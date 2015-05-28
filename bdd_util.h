@@ -25,4 +25,16 @@ template <class T>
 T distribution(T p, T i) 
   { return (static_cast<T>(1.0) / (std::pow<T>(p,std::pow<T>(static_cast<T>(2.0),i)) + static_cast<T>(1.0))); }
 
+std::ostream& Cudd_bddStreamCover( DdManager *dd, DdNode *l, DdNode *u, std::ostream& out);
+
+inline std::ostream& PrintCover(BDD& node, std::ostream& out)
+{
+  return Cudd_bddStreamCover(node.manager(), node.getNode(), node.getNode(), out);
+}
+inline std::string PrintCover(BDD& node)
+{
+  std::stringstream str1;
+  Cudd_bddStreamCover(node.manager(), node.getNode(), node.getNode(), str1);
+  return str1.str();
+}
 #endif // BDD_UTIL_H

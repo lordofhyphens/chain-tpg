@@ -11,6 +11,7 @@
 #include <map>
 #include <cudd.h>
 #include <cuddInt.h>
+
 #include <cuddObj.hh>
 #include "bdd_util.h"
 
@@ -160,3 +161,90 @@ BDD PickOneMintermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars
   return minterm;
 
 }
+
+/**Function********************************************************************
+
+  Synopsis    [Prints a sum of prime implicants of a BDD.]
+
+  Description [Prints a sum of product cover for an incompletely
+  specified function given by a lower bound and an upper bound.  Each
+  product is a prime implicant obtained by expanding the product
+  corresponding to a path from node to the constant one.  Uses the
+  package default output file.  Returns 1 if successful; 0 otherwise.]
+
+  SideEffects [None]
+
+  SeeAlso     [Cudd_PrintMinterm]
+
+******************************************************************************/
+std::ostream& Cudd_bddStreamCover( DdManager *dd, DdNode *l, DdNode *u, std::ostream& out)
+{
+    int *array;
+    int q, result;
+    DdNode *lb;
+
+    array = (int*)malloc(sizeof(int)*Cudd_ReadSize(dd));
+    if (array == NULL) return out;
+    lb = l;
+    cuddRef(lb);
+    while (lb != Cudd_ReadLogicZero(dd)) {
+	DdNode *implicant, *prime, *tmp;
+	int length;
+	implicant = Cudd_LargestCube(dd,lb,&length);
+	if (implicant == NULL) {
+	    Cudd_RecursiveDeref(dd,lb);
+	    free(array);
+	    return out;
+	}
+	cuddRef(implicant);
+	prime = Cudd_bddMakePrime(dd,implicant,u);
+	if (prime == NULL) {
+	    Cudd_RecursiveDeref(dd,lb);
+	    Cudd_RecursiveDeref(dd,implicant);
+	    free(array);
+	    return out;
+	}
+	cuddRef(prime);
+	Cudd_RecursiveDeref(dd,implicant);
+	tmp = Cudd_bddAnd(dd,lb,Cudd_Not(prime));
+	if (tmp == NULL) {
+	    Cudd_RecursiveDeref(dd,lb);
+	    Cudd_RecursiveDeref(dd,prime);
+	    free(array);
+	    return out;
+	}
+	cuddRef(tmp);
+	Cudd_RecursiveDeref(dd,lb);
+	lb = tmp;
+	result = Cudd_BddToCubeArray(dd,prime,array);
+	if (result == 0) {
+	    Cudd_RecursiveDeref(dd,lb);
+	    Cudd_RecursiveDeref(dd,prime);
+	    free(array);
+	    return out;
+	}
+	for (q = 0; q < dd->size; q++) {
+	    switch (array[q]) {
+        case 0:
+          out << "0";
+          break;
+        case 1:
+          out << "1";
+          break;
+        case 2:
+          out << "-";
+          break;
+        default:
+          out << "?";
+      }
+  }
+  out << std::endl;
+	Cudd_RecursiveDeref(dd,prime);
+    }
+    Cudd_RecursiveDeref(dd,lb);
+    free(array);
+    return out;
+
+} /* end of Cudd_bddPrintCover */
+
+
