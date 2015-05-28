@@ -15,11 +15,11 @@
 #include "bdd_util.h"
 
 #include "getpis.h"
-BDD PickValidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD next_all)
+BDD PickValidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all)
 {
   size_t i = 0;
   BDD next = next_all.PickOneMinterm(ckt.dff_vars);
-  while (GetPIs(ckt.getManager(), ckt.dff_io, prev,next).IsZero() && !next_all.IsZero())
+  while (GetPIs(ckt.getManager(), ckt.dff_io, prev,next).IsZero() && !(next_all.IsZero()))
   {
     next_all -= next;
     next = next_all.PickOneMinterm(ckt.dff_vars);

@@ -16,7 +16,7 @@
 #include "cudd_ckt.h"
 
 // picks a minterm that actually has PIs. Modifies the image BDD (to make things faster next time).
-BDD PickValidMintermFromImage(CUDD_Circuit ckt, const BDD& prev, BDD next_all);
+BDD PickValidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all);
 BDD RemoveInvalidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all);
 BDD RemoveInvalidMintermFromImage(Cudd manager,const std::vector<BDD>& dff_vars,const std::map<int,BDD>& dff_io, const BDD& prev, BDD next_all);
 
