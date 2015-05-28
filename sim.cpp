@@ -164,7 +164,7 @@ int main(int argc, char* const argv[])
   {
     if (save_flag)
     {
-      inp_dump << PrintCover(inp) << "\n";
+      inp_dump << PrintCover(inp);
     }
     auto a = bddsim(ckt, state, inp);
     state = get<0>(a);
