@@ -241,7 +241,6 @@ int main(int argc, char* const argv[])
   int arg;;
   int single_chain = 0;
   int partition_flag = 0;
-  int simulate_flag = 0;
   int do_backtrack = 1;
   int allrand = 0;
   std::string initial_state = "";
@@ -250,8 +249,6 @@ int main(int argc, char* const argv[])
   int option_index = 0;
 	extern int optind;
   srand(time(NULL));
-  int do_export_flag = 0;
-  int bdd_export_flag = 0;
   int mutant_count = 10;
   std::vector<std::map<unsigned int, bool> > inputs;
   std::string infile(argv[1]);
@@ -263,26 +260,21 @@ int main(int argc, char* const argv[])
   signal(SIGINT, signal_callback_handler);
   while (1)
   {
-    std::string max_time_str, max_length_str;
     static struct option long_options[] =
     {
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
+      {"brief",   no_argument,       &verbose_flag, 0},
       {"nobacktrack", no_argument,       &do_backtrack, 0},
       {"partition", no_argument,       &partition_flag, 1},
-      {"simulate", no_argument,       &simulate_flag, 1},
-      {"brief",   no_argument,       &verbose_flag, 0},
-      {"export", no_argument, &do_export_flag, 1},
       {"single", no_argument, &single_chain, 1},
       {"nolink", no_argument, &nolink, 1},
       {"allrandom", required_argument, 0, 'r'},
-      {"exportbdd", no_argument, &bdd_export_flag, 1},
       /* These options don't set a flag.
          We distinguish them by their indices. */
       {"help",     no_argument,       0, 'h'},
       {"bench",     required_argument,       0, 'b'},
       {"time",     required_argument,       0, 't'},
-      {"mutants",     required_argument,       0, 'm'},
       {"length",     required_argument,       0, 'l'},
       {"initial",     required_argument,       0, 'i'},
       {0, 0}
@@ -307,12 +299,16 @@ int main(int argc, char* const argv[])
         printf ("\n");
         break;
       case 'r':
-        max_length_str = std::string(optarg);
-        allrand = atoi(max_time_str.c_str());
+        {
+          auto argstr = std::string(optarg);
+          allrand = stoi(argstr);
+        }
         break;
       case 'm':
-        max_length_str = std::string(optarg);
-        mutant_count = std::stoi(max_length_str);
+        {
+          auto argstr = std::string(optarg);
+          mutant_count = std::stoi(argstr);
+        }
         break;
       case 'b':
         infile = std::string(optarg);
@@ -327,8 +323,6 @@ int main(int argc, char* const argv[])
         printf("\t--brief : Quiets debug messages. The default.\n");
         printf("\t--single : Only try to make a single chain.\n");
         printf("\t--nolink : Don't try to link chains.\n");
-        printf("\t--export : Dump a levelized version of the circuit.\n");
-        printf("\t--exportbdd : Dump the bdds.\n");
         printf("\t--time max : Maximum time to run simulation in msec.\n");
         printf("\t--length max: Maximum length of chain to generate.\n");
         printf("\t--help : This dialog.\n");
@@ -340,12 +334,16 @@ int main(int argc, char* const argv[])
         initial_state = std::string(optarg);
         break;
       case 't':
-        max_time_str = std::string(optarg);
-        MAX_TIME = atof(max_time_str.c_str());
+        {
+          auto argstr = std::string(optarg);
+          MAX_TIME = stof(argstr);
+        }
         break;
       case 'l':
-        max_length_str = std::string(optarg);
-        MAX_LENGTH = atoi(max_time_str.c_str());
+        {
+          auto argstr = std::string(optarg);
+          MAX_LENGTH = stoi(argstr);
+        }
         break;
       case '?':
         /* getopt_long already printed an error message. */
@@ -382,95 +380,6 @@ int main(int argc, char* const argv[])
     ckt.print();
   }
   ckt.form_bdds();
-
-  if (bdd_export_flag)
-  {
-    std::cerr << "Generating " << mutant_count << " mutants." << "\n";
-    std::vector<BDD>* mutants = new std::vector<BDD>[ckt.all_vars.size()];
-    bool abort = false;
-    int total_mutants = 0;
-    while (total_mutants< mutant_count && !abort)
-    {
-      int j = 0;
-      for (auto &f : ckt.dff) 
-      {
-        auto last = mutants[j].size(); 
-        mutants[j].push_back(ckt.PermuteFunction(f.second,1));
-        std::sort(mutants[j].begin(), mutants[j].end());
-        auto it = std::unique(mutants[j].begin(), mutants[j].end());
-        mutants[j].resize(std::distance(mutants[j].begin(), it));
-        if (last < mutants[j].size())
-          total_mutants++;
-        j++;
-      }
-      for (auto &f : ckt.po) 
-      {
-        auto last = mutants[j].size(); 
-        mutants[j].push_back(ckt.PermuteFunction(f.second,1));
-        std::sort(mutants[j].begin(), mutants[j].end());
-        auto it = std::unique(mutants[j].begin(), mutants[j].end());
-        mutants[j].resize(std::distance(mutants[j].begin(), it));
-        if (last < mutants[j].size())
-          total_mutants++;
-        j++;
-      }
-      if (total_mutants % 100) 
-      {
-        std::cerr << "Finished generating " << total_mutants << " mutant functions. \n";
-      }
-      
-    }
-    std::cerr << "Formed all mutants, dumping to files." << "\n";
-
-    int victim = rand() %ckt.all_vars.size();
-    DdNode** outfuncs = new DdNode*[ckt.all_vars.size()];
-
-    char** outnames = new char*[ckt.all_vars.size()];
-    char** innames = new char*[ckt.all_vars.size()];
-    int y = 0;
-    for (auto &f : ckt.pi)
-    {
-      innames[y] = (char*)ckt.at(f.first).name.c_str();
-      y++;
-    }   
-    for (int j = 0; j < mutant_count; j++) {
-      std::string temp;
-      int z = 0;
-      for (auto &f : ckt.dff) {
-        if (z == victim) 
-        {
-          outfuncs[z] = mutants[z].back().getNode();
-          mutants[z].pop_back();
-          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
-        }
-        else 
-        {
-          outfuncs[z] = f.second.getNode();
-          outnames[z] = (char*)ckt.at(f.first).name.c_str();
-        }
-        z++;
-      }
-      for (auto &f : ckt.po) {
-        if (z == victim) 
-        {
-          outfuncs[z] = mutants[z].back().getNode();
-          mutants[z].pop_back();
-          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
-        }
-        else 
-        {
-          outfuncs[z] = f.second.getNode();
-          outnames[z] = (char*)ckt.at(f.first).name.c_str();
-        }
-        z++;
-      }
-      FILE* fp = fopen((infile + "-"+std::to_string(j)+".blif").c_str(),"w");
-      Dddmp_cuddBddArrayStoreBlif(ckt.getManager().getManager(), z, outfuncs, innames, outnames, (char*)ckt.getName().c_str(), "test2" , fp);
-      fclose(fp);
-    }
-    exit(0);
-
-  }
 
   std::cerr << __FILE__ << ": " <<"Successfully formed BDDs for " << infile << "\n";
   // begin the search
