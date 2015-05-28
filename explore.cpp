@@ -775,13 +775,13 @@ int main(int argc, char* const argv[])
   const int LINK_SPOTS=1;
   const int MAX_SHIFTS = (ckt.dff.size() / 2) + (ckt.dff.size() % 2 > 0);
   std::vector<joined_t> linked_chains;
-  for (std::vector<chain_t>::iterator it = all_chains.begin(); it != all_chains.end(); it++)
-  {
-    linked_chains.push_back(*it);
-  }
 
   if (!nolink) // optionally don't try to link chains with shifts.
   {
+    for (std::vector<chain_t>::iterator it = all_chains.begin(); it != all_chains.end(); it++)
+    {
+      linked_chains.push_back(*it);
+    }
     std::vector<joined_t>::iterator start = linked_chains.begin();
 
     // get an iterator to a point in the chain. 
