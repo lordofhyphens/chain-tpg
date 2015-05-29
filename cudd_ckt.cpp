@@ -160,38 +160,38 @@ void CUDD_Circuit::form_bdds()
           if (verbose_flag)
             std::cerr << __FILE__ << ": " <<"\tWorking on fanin " << fin->second << ", " << fin->first<< "\n";
 
-        try 
-        {
-          switch(gate->typ)
+          try 
           {
-            case NAND:
-              result = result.Nand(net.at(fin->second));
-              break;
-            case NOR:
-              result = result.Nor(net.at(fin->second));
-              break;
-            case AND:
-              result = result.And(net.at(fin->second));
-              break;
-            case OR:
-              result = result.Or(net.at(fin->second));
-              break;
-            case XOR:
-              result = result.Xor(net.at(fin->second));
-              break;
-            case XNOR:
-              result = result.Xnor(net.at(fin->second));
-              break;
+            switch(gate->typ)
+            {
+              case NAND:
+                result = result.Nand(net.at(fin->second));
+                break;
+              case NOR:
+                result = result.Nor(net.at(fin->second));
+                break;
+              case AND:
+                result = result.And(net.at(fin->second));
+                break;
+              case OR:
+                result = result.Or(net.at(fin->second));
+                break;
+              case XOR:
+                result = result.Xor(net.at(fin->second));
+                break;
+              case XNOR:
+                result = result.Xnor(net.at(fin->second));
+                break;
+            }
           }
-        }
-        catch (std::out_of_range& e) 
-        {
-          std::cerr << "No BDD at net for gate " << graph->at(fin->second) << "\n";
-          throw;
-        }
+          catch (std::out_of_range& e) 
+          {
+            std::cerr << "No BDD at net for gate " << graph->at(fin->second) << "\n";
+            throw;
+          }
 
-          break;
         }
+        break;
 
     }
 
