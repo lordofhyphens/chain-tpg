@@ -1,11 +1,12 @@
 #include "getpis.h"
 #include "bdd_util.h"
+#include "cudd_ckt.h"
 
 // GetPIs algorithm
 // Combine the BDDs for all functions in the ckt, inverting as necessary to get the
 // correct on-set. 
 // 
- BDD GetPIs(Cudd manager,  std::map<BDD,BDD> functions, const BDD& prev, const BDD& next)
+ BDD GetPIs(Cudd manager,  dffpair_t functions, const BDD& prev, const BDD& next)
  {
   if (verbose_flag)
   {
@@ -22,16 +23,12 @@
      BDD current_var = manager.bddVar(iter.first);
      bool do_complement = (next < ~current_var) && !(next < current_var);
      if (result == manager.bddOne())
-       result = do_complement ? ~(iter.first.Constrain(prev)): iter.first.Constrain(prev);
+       result = do_complement ? ~(iter.second.first.Constrain(prev)): iter.second.first.Constrain(prev);
      else
-       result = result.Intersect(do_complement ? ~(iter.first.Constrain(prev)): iter.first.Constrain(prev) );
+       result = result.Intersect(do_complement ? ~(iter.second.first.Constrain(prev)): iter.second.first.Constrain(prev) );
    }
    return result;
  }// get just one minterm
-BDD GetPI(Cudd manager, std::map<BDD,BDD> functions, std::map<int, BDD> vars, const BDD& prev, const BDD& next)
-{
-  return GetPIs(manager, functions, prev,next).PickOneMinterm(getVector(manager, vars));
-}
 
 std::vector<BDD> getVector(Cudd manager, std::map<int, BDD> map)
 {

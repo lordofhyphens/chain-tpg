@@ -9,6 +9,8 @@
 #include "cuddObj.hh"
 #include <tuple>
 extern int verbose_flag;
+using dffpair_t = std::map<int, std::pair<BDD, BDD>>; // DFF Variables
+
 class CUDD_Circuit : public Circuit { 
   public:
     std::map<int, BDD> po;
@@ -19,7 +21,7 @@ class CUDD_Circuit : public Circuit {
     std::vector<BDD> dff_vars;
     std::vector<BDD> all_vars;
     std::map<int, int> dff_pair; // DFF Variables
-    std::map<BDD, BDD> dffset; // DFF Variables
+    std::map<int, std::pair<BDD, BDD>> dffset; // DFF Variables
     std::map<int, BDD> dff_io; // DFF output functions indexed by their variable id
     void clear() {
       Circuit::clear();

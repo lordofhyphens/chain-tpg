@@ -50,8 +50,8 @@ BDD _img(const funcs_t& g, const vars_t& f, Cudd manager, imgcache_t& cache, con
         constant_terms *= (it->second.IsOne() ? f[dist] : ~(f[dist]));
       else
       {
-        pos *= (f[dist]);
-        neg *= ~(f[dist]);
+        pos *= (f.at(dist));
+        neg *= ~(f.at(dist));
       }
     }
     return constant_terms*(pos + neg);
@@ -63,7 +63,7 @@ BDD _img(const funcs_t& g, const vars_t& f, Cudd manager, imgcache_t& cache, con
     funcs_t vn(g);
     if (verbose_flag) 
       std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(f.size()-1) << "\n";
-    BDD p = f[split];
+    BDD p = f.at(split);
     // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
     for (auto &c : v) { c.second = c.second.Cofactor(p);}
     pcf = _img(v, f, manager, cache, split+1);

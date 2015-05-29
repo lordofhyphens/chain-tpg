@@ -398,7 +398,7 @@ int main(int argc, char* const argv[])
   if (verbose_flag)
     std::cerr << __FILE__ << ": " <<"POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
 
-  std::cerr << ckt.getManager().ReadSize() << "\n";
+  std::cerr << ckt.dffset.size() << " "  << ckt.getManager().ReadSize() << "\n";
   BDD possible = img(ckt.dff, ckt.dff_vars, ckt.getManager(), cache);
 
   BDD allterm = possible;

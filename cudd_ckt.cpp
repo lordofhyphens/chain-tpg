@@ -7,6 +7,7 @@
 using std::get;
 using std::tuple;
 using std::make_tuple;
+using std::make_pair;
 
 void CUDD_Circuit::add_minterm_to_graph(bool& had_minterm, bool& single_product, std::tuple<int, std::string>& products, std::string& outname, std::vector<std::string>& minterm_list)
 {
@@ -109,7 +110,8 @@ void CUDD_Circuit::form_bdds()
         }
         all_vars.push_back(result);
         varpos++;
-        pi.insert(std::make_pair(pos, result));
+        pi[pos] = result;
+        net[pos] = result;
         break;
       case NOT:
         try 
@@ -179,6 +181,7 @@ void CUDD_Circuit::form_bdds()
 
     if (gate->typ == DFF_IN) {
       dff[pos] = result;
+      net[pos] = result;
       if (verbose_flag)
         std::cerr << __FILE__ << ": " <<"looking for matching var for " << gate->name << ", " << gate->name.substr(0,gate->name.size()-3).c_str() << "\n";
       std::string tgt = gate->name.substr(0,gate->name.size()-3);
@@ -189,7 +192,6 @@ void CUDD_Circuit::form_bdds()
         if (gtmp->name.find(tgt.c_str(),0,tgt.size()) != std::string::npos)
         {
           dff_pair[pos] = gtmp - graph->begin();
-          dffset[net[gtmp - graph->begin()]] = net[pos];
           if (verbose_flag)
             std::cerr << __FILE__ << ": " <<"found " << gtmp->name << " at pos " << gtmp-graph->begin()<<"\n";
           break;
@@ -199,20 +201,24 @@ void CUDD_Circuit::form_bdds()
     else 
     {
       if (gate->po)
+      {
         po[pos] = result;
+        net[pos] = result;
+      }
       else 
         net[pos] = result;
     }
   }
   // Don't need the intermediate gate node BDDs, so clear them so 
   // garbage collection can happen.
-  net.clear();
-  _manager.AutodynDisable();
   assert(dff_pair.size() > 0);
   for (auto& id : dff_pair)
   {
     dff_io[id.second] = dff[id.first];
+    dffset[id.second] = make_pair(net.at(id.first),net.at(id.second));
   }
+  net.clear();
+  _manager.AutodynDisable();
 }
 
 // Randomly add/remove diff minterms from the function.
@@ -358,10 +364,18 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
             src = gname;
             break;
           case 1:
-            graph->push_back(NODEC(gname+"_IN", DFF_IN, 1, src)); // actually add the output node
-            graph->back().po = true;
-            graph->push_back(NODEC(gname,DFF));
-            graph->push_back(NODEC(gname+"_NOT", NOT, 1, gname)); // actually add the output node
+            {
+              graph->push_back(NODEC(gname+"_IN", DFF_IN, 1, src)); // actually add the output node
+              graph->back().po = true;
+              auto it = std::find(graph->begin(), graph->end(), gname);
+              if (it == graph->end()) 
+                graph->push_back(NODEC(gname,DFF));
+              else
+              {
+                it->typ = DFF;
+              }
+              graph->push_back(NODEC(gname+"_NOT", NOT, 1, gname)); // actually add the output node
+            }
             break;
           default: 
             // the optionals, ignore for now?
@@ -466,7 +480,7 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
   // post-processing: do check on all outputs. Anything that has a _in suffix probably has a corresponding 
   // name in the input list. If there is one, change the output type to DFF and the corresponding input to DFF_IN
 	auto it = remove_if(graph->begin(),graph->end(),isUnknown);
-  graph->resize(it - graph->begin());
+  //graph->resize(it - graph->begin());
   for (auto& node : *graph) 
   {
     if (node.po && node.typ != DFF_IN)
@@ -483,7 +497,7 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
   it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
     return (g.po == false && g.nfo == 0 && g.typ != DFF_IN);
   });
-  graph->resize(it - graph->begin());
+  //graph->resize(it - graph->begin());
   it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
     return (g.nfi == 0 && g.typ != DFF && g.typ != INPT);
   });

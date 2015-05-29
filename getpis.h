@@ -5,9 +5,10 @@
 #include <cuddInt.h>
 #include <cuddObj.hh>
 #include <map>
+#include "cudd_ckt.h"
 
-BDD GetPIs(Cudd manager, std::map<BDD,BDD> functions, const BDD& prev, const BDD& next);
-BDD GetPI(Cudd manager, std::map<BDD,BDD> functions, std::map<int, BDD> vars, const BDD& prev, const BDD& next);
+BDD GetPIs(Cudd manager, dffpair_t functions, const BDD& prev, const BDD& next);
+BDD GetPI(Cudd manager, dffpair_t functions, std::map<int, BDD> vars, const BDD& prev, const BDD& next);
 
 std::vector<BDD> getVector(Cudd manager, std::map<int, BDD>);
 std::map<int,int> getInputsFromMinterm(Cudd manager, BDD minterm);

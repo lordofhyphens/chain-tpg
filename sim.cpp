@@ -28,6 +28,7 @@ int main(int argc, char* const argv[])
   int option_index = 0;
   int save_flag = 0;
   int support_flag = 0;
+  int explore_flag = 0;
   
   while (1)
   {
@@ -38,6 +39,7 @@ int main(int argc, char* const argv[])
       {"brief",   no_argument,       &verbose_flag, 0},
       {"save",   no_argument,       &save_flag, 1},
       {"support",   no_argument,       &support_flag, 1},
+      {"explore",   no_argument,       &explore_flag, 1},
       /* These options don't set a flag.
          We distinguish them by their indices. */
       {"help",     no_argument,       0, 'h'},
@@ -180,6 +182,7 @@ int main(int argc, char* const argv[])
   ofstream state_dump;
   ofstream inp_dump;
   ofstream out_dump;
+  BDD visited = ckt.getManager().bddZero();
 
   if (save_flag)
   {
@@ -222,7 +225,21 @@ int main(int argc, char* const argv[])
       std::cout << get<1>(a);
 
     if (inputs == "")
+    {
       inp = ckt.getManager().bddOne().PickOneMinterm(ckt.pi_vars);
+      if (explore_flag) 
+      {
+        visited += state;
+        auto a = bddsim(ckt, state, inp);
+        int l = 0;
+        // try to get to a state we haven't visted yet if available
+        while (l < 500 && get<0>(a) < visited) {
+          inp = ckt.getManager().bddOne().PickOneMinterm(ckt.pi_vars);
+          a = bddsim(ckt, state, inp);
+          l++;
+        }
+      }
+    }
     else
     {
       inp = ckt.get_minterm_from_string(*inp_it); inp_it++;

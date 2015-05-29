@@ -33,7 +33,7 @@ BDD PickValidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all)
   
   return next;
 }
-BDD RemoveInvalidMintermFromImage(Cudd manager, const std::vector<BDD>& dff_vars, const std::map<BDD,BDD>& dff_io, const BDD& prev, BDD next_all)
+BDD RemoveInvalidMintermFromImage(Cudd manager, const std::vector<BDD>& dff_vars, const dffpair_t& dff_io, const BDD& prev, BDD next_all)
 {
   size_t i = 0;
   BDD next = next_all.PickOneMinterm(dff_vars);

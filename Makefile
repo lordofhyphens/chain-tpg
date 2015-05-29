@@ -23,7 +23,7 @@ CXX=clang++
 .PHONY: all test clean
 .SUFFIXES: cc c cpp
 
-all: explore mutate sim
+all: testsuite explore mutate sim
 explore: $(explore_objs)
 	echo $(LIBS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $^ -o $@ $(LIBS)
