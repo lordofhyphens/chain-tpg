@@ -37,8 +37,8 @@ TEST_GROUP(Ckt_BDD_Util)
 
 TEST(Ckt_BDD_Util, PickValidMinterm)
 {
-  BDD prev = img(ckt->all_vars,  ckt->getManager(),cache);
-  BDD next_all = img(ckt->all_vars,  prev, ckt->getManager(),cache);
+  BDD prev = img(ckt->dff, ckt->all_vars,  ckt->getManager(),cache);
+  BDD next_all = img(ckt->dff, ckt->all_vars,  prev, ckt->getManager(),cache);
   verbose_flag = 1;
   BDD next = PickValidMintermFromImage(*ckt, prev, next_all);
   verbose_flag = 0;

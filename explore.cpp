@@ -398,23 +398,21 @@ int main(int argc, char* const argv[])
   if (verbose_flag)
     std::cerr << __FILE__ << ": " <<"POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
 
-
-  BDD possible = img(ckt.all_vars, ckt.getManager(), cache);
+  std::cerr << ckt.getManager().ReadSize() << "\n";
+  BDD possible = img(ckt.dff, ckt.dff_vars, ckt.getManager(), cache);
 
   BDD allterm = possible;
   long int possible_count = possible.CountMinterm(ckt.dff.size());
   if (verbose_flag)
     std::cerr << __FILE__ << ": " <<"Total states: " << pow(2,ckt.dff.size()) << ", size of unconstrained image: " << possible_count << "\n";
 
-  BDD next; 
+  BDD next = possible.PickOneMinterm(ckt.dff_vars);
 
   BDD avoid = ckt.getManager().bddZero();
 
   unsigned int all_backtracks = 0;
 
-  if (initial_state == "")
-    next = (ckt.getManager().bddOne()).PickOneMinterm(ckt.dff_vars);
-  else 
+  if (initial_state != "")
     next = ckt.get_minterm_from_string(initial_state);
   chain.initial = next;
   allterm -= next;
@@ -429,14 +427,16 @@ int main(int argc, char* const argv[])
       });
   if (allrand > 0) {
     for (auto i = 0; i < allrand; i++) {
-      BDD next_img = img(ckt.all_vars, next, ckt.getManager(),cache);
-      next = PickValidMintermFromImage(ckt, next, next_img);
-      BDD pi = GetPIs(ckt.getManager(), ckt.dff_io, std::get<1>(chain.back()), next);
+      BDD next_img = img(ckt.dff, ckt.dff_vars, next, ckt.getManager(),cache);
+      //next = PickValidMintermFromImage(ckt, next, next_img);
+      next = next_img.PickOneMinterm(ckt.dff_vars);
+      assert(!(next.IsZero()));
+      BDD pi = GetPIs(ckt.getManager(), ckt.dffset, std::get<1>(chain.back()), next);
       chain.push(pi, next);
     }
     quit = true;
   }
-  while ( !quit && (img(ckt.all_vars, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
+  while ( !quit && (img(ckt.dff, ckt.dff_vars, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
     std::cerr << __FILE__ << ": " <<"State has no next-states!" << "\n";
     deadends += next;
@@ -458,13 +458,14 @@ int main(int argc, char* const argv[])
   in_loop = true;
   do
   {
-    BDD next_img = img(ckt.all_vars, next, ckt.getManager(),cache);
+    BDD next_img = img(ckt.dff, ckt.dff_vars, next, ckt.getManager(),cache);
     BDD prev = next;
     next_img -= avoid;
     next_img -= deadends;
-    if  ((next_img- visited).CountMinterm(ckt.dff.size()) == 1)
+    BDD tmp = next_img - visited;
+    if  (tmp.CountMinterm(ckt.dff.size()) == 1)
       chain_images.erase(next.getNode());
-    if ( (next_img - visited).CountMinterm(ckt.dff.size()) == 0)
+    if ( tmp.CountMinterm(ckt.dff.size()) == 0)
     {
       //std::cerr << __FILE__ << ": " <<"No unvisited states" << "\n";
       chain_images.erase(next.getNode());
@@ -553,7 +554,8 @@ int main(int argc, char* const argv[])
         }
         else 
         {
-          next = PickValidMintermFromImage(ckt,next,next_img);
+          //next = PickValidMintermFromImage(ckt,next,next_img);
+          next = next_img.PickOneMinterm(ckt.dff_vars);
           allterm -= next;
           all_backtracks++;
           backtrack = (backtrack > 0 ? backtrack -1 : 0);
@@ -577,10 +579,10 @@ int main(int argc, char* const argv[])
           next = ckt.getManager().bddZero();
         }
       }
-      while (!quit && next == ckt.getManager().bddZero() && taken_time < MAX_TIME );
+      while (!quit && next.IsZero() && taken_time < MAX_TIME );
       if (quit || taken_time >= MAX_TIME) continue;
       allterm -= next;
-      BDD pi = GetPIs(ckt.getManager(), ckt.dff_io, std::get<1>(chain.back()), next);
+      BDD pi = GetPIs(ckt.getManager(), ckt.dffset, std::get<1>(chain.back()), next);
       chain.push_empty(pi, next);
     }
     else
@@ -589,15 +591,16 @@ int main(int argc, char* const argv[])
         std::cerr << __FILE__ << ": " <<"Unvisited states: " <<(next_img - visited).CountMinterm(ckt.dff.size()) << "\n";
       //next.PrintCover();
 
-
-      if (chain_images.count(next.getNode()) == 0 &&  (next_img - visited).CountMinterm(ckt.dff.size()) > 1)
+      BDD tmp = (next_img - visited);
+      if (chain_images.count(next.getNode()) == 0 &&  tmp.CountMinterm(ckt.dff.size()) > 1)
       {
         chain_images[next.getNode()] = next_img;
       }
-      next = PickValidMintermFromImage(ckt, prev,(next_img - visited));
+      //next = PickValidMintermFromImage(ckt, prev,tmp);
+      next = next_img.PickOneMinterm(ckt.dff_vars);
 
       visited += next;
-      BDD pi = GetPIs(ckt.getManager(), ckt.dff_io, std::get<1>(chain.back()), next);
+      BDD pi = GetPIs(ckt.getManager(), ckt.dffset, std::get<1>(chain.back()), next);
       chain.push(pi, next);
     }
     if (verbose_flag)

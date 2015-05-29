@@ -189,6 +189,7 @@ void CUDD_Circuit::form_bdds()
         if (gtmp->name.find(tgt.c_str(),0,tgt.size()) != std::string::npos)
         {
           dff_pair[pos] = gtmp - graph->begin();
+          dffset[net[gtmp - graph->begin()]] = net[pos];
           if (verbose_flag)
             std::cerr << __FILE__ << ": " <<"found " << gtmp->name << " at pos " << gtmp-graph->begin()<<"\n";
           break;

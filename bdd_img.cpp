@@ -1,98 +1,78 @@
 #include "bdd_img.h"
+
 #ifndef __clang__ 
 	#include <parallel/algorithm>
 #else
 	#define __gnu_parallel std 
 #endif
+#include <algorithm>
 
 extern int verbose_flag;
 
-BDD _img(const vars_t f, Cudd manager, imgcache_t& cache, const int split = 0);
-BDD _img(const vars_t f, const BDD& C, Cudd manager, imgcache_t& cache, const int split = 0);
+BDD _img(const funcs_t& g, const vars_t& f, Cudd manager, imgcache_t& cache, const int split = 0);
+BDD _img(const funcs_t& g, const vars_t& f, BDD& C, Cudd manager, imgcache_t& cache, const int split = 0);
 
-
-BDD img(const vars_t  f, const BDD& C, Cudd manager, imgcache_t& cache, const int split)
+BDD img(const funcs_t& g, const vars_t& f, BDD& C, Cudd manager, imgcache_t& cache, const int split)
 {
   BDD result;
   manager.AutodynDisable();
-  result = _img(f, C, manager, cache, split);
-//  cache.clear();
+  result = _img(g, f, C, manager, cache, split);
   manager.AutodynEnable(CUDD_REORDER_SAME);
   return result;
 
 }
 
-BDD img(const vars_t f, Cudd manager, imgcache_t& cache, const int split)
+BDD img(const funcs_t& g, const vars_t& f, Cudd manager, imgcache_t& cache, const int split)
 {
   BDD result;
 
   manager.AutodynDisable(); // Disable variable reordering while 
-  result = _img(f, manager, cache, split);
+  result = _img(g, f, manager, cache, split);
 //  cache.clear();
   manager.AutodynEnable(CUDD_REORDER_SAME);
   return result;
 }
-BDD _img(const vars_t f,Cudd manager, imgcache_t& cache, const int split)
+BDD _img(const funcs_t& g, const vars_t& f, Cudd manager, imgcache_t& cache, const int split)
 {
   // mapping is needed to match output functions to input variables when generating
   // next-state.
   // first, check to see if any of the functions are constant 0 or constant 1.
   // if there are, we have a terminal case
-  try 
-  {
-    if ( manager.ReadPerm(split) < 0 )
-      throw manager.ReadPerm(split);
-  }
-  catch (int e)
-  {
-    std::cerr << "Variable " << split << "# is negative in perm." << "\n";
-    throw e;
-  }
-  if (__gnu_parallel::count_if(f.begin(), f.end(), isConstant) > 0) 
+  if (__gnu_parallel::any_of(g.begin(), g.end(), [](std::pair<int, BDD> n){ return n.second.IsZero() || n.second.IsOne(); } )) 
   {
     if (verbose_flag) 
-      std::cerr << __FILE__ << ":" << "Terminal case." << "\n";
-    BDD constant_terms = manager.bddOne();
-    for (auto it = f.cbegin(); it != f.end(); it++) {
-      const auto varpos = std::distance(f.cbegin(), it);
-      if (manager.bddIsNsVar(varpos) != 1) { continue; }
-
-      if (it->IsOne() || it->IsZero())
-        constant_terms *= (it->IsOne() ? *it : ~(*it));
+      std::cerr << __FILE__ << ":" << "Terminal case on cofactor of var x" << manager.ReadPerm(f.size()-1) << "\n";
+    BDD constant_terms = manager.bddOne(), 
+      neg = manager.bddOne(), pos = manager.bddOne();
+    for (auto it = g.cbegin(); it != g.end(); it++) {
+      int dist = std::distance(g.cbegin(), it);
+      if (it->second.IsOne() || it->second.IsZero())
+        constant_terms *= (it->second.IsOne() ? f[dist] : ~(f[dist]));
+      else
+      {
+        pos *= (f[dist]);
+        neg *= ~(f[dist]);
+      }
     }
-    return constant_terms;
+    return constant_terms*(pos + neg);
   } 
   else 
   {
-   BDD ncf, pcf;
-   vars_t v = f;
-   vars_t vn = f;
-   if (verbose_flag) 
-     std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(split) << "\n";
-   BDD p = f[split];
-   if (true)
-   {
-     // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
-     for (auto it = v.begin(); it != v.end(); it++) 
-     {
-       *it= it->Cofactor(p);
-     }
-     pcf = _img(v, manager, cache, split+1);
-   }
-   else
-     if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
-   // try to cache previously-found results
-   if (true)
-   {
-    for (auto it = vn.begin(); it != vn.end(); it++) 
-    {
-      *it = it->Cofactor(~p);
-    }
-     ncf = _img(vn, manager, cache, split+1);
-   }
-   else
-     if (verbose_flag) std::cerr << __FILE__ << ": " << "Cache hit." << "\n";
-   return ncf + pcf;
+    std::cerr << "dff size: " << f.size() << ", " << manager.ReadSize() << "\n";
+    BDD ncf, pcf;
+    funcs_t v(g);
+    funcs_t vn(g);
+    if (verbose_flag) 
+      std::cerr << __FILE__ << ":" << "Splitting on var x" << manager.ReadPerm(f.size()-1) << "\n";
+    BDD p = f[split];
+    // cofactor by another variable in the order and recur. return the sum of the two returned minterms, one for each cofactor (negative and positive)
+    for (auto &c : v) { c.second = c.second.Cofactor(p);}
+    pcf = _img(v, f, manager, cache, split+1);
+    for (auto &c : vn) { c.second = c.second.Cofactor(~p);}
+    ncf  = _img(vn, f, manager, cache, split+1);
+
+    return pcf + ncf;
+
   }
 }
 // Expansion via input splitting The image of F w/r/t is the union of the image
@@ -107,16 +87,13 @@ BDD _img(const vars_t f,Cudd manager, imgcache_t& cache, const int split)
 // at every level of recursion, see if one of the arguments is constant. if it
 // is, compute the minterm for that and return it.
 //
-BDD _img(const vars_t f, const BDD& C, Cudd manager, imgcache_t& cache,const int split)
+BDD _img(const funcs_t& g, const vars_t& f, BDD& C, Cudd manager, imgcache_t& cache,const int split)
 {
-  vars_t v(f);
-  for(BDD& n : v) { n = n.Constrain(C); } // same as above
-  return _img(v, manager, cache);
+  funcs_t v(g);
+  for(auto& n : v) { n.second = n.second.Constrain(C); } // same as above
+  return _img(v, f, manager, cache);
+}
 
-}
-bool isConstant(const BDD& f) {
-  return (f.IsOne() || f.IsZero());
-}
 // Behaviour: Variable 1 becomes variable 2, ... while variable N becomes a dontcare
 // Variable order is in terms of the integer order, not the current BDD ordering.
 // List of vars to shift is in vars

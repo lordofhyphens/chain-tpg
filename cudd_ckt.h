@@ -19,6 +19,7 @@ class CUDD_Circuit : public Circuit {
     std::vector<BDD> dff_vars;
     std::vector<BDD> all_vars;
     std::map<int, int> dff_pair; // DFF Variables
+    std::map<BDD, BDD> dffset; // DFF Variables
     std::map<int, BDD> dff_io; // DFF output functions indexed by their variable id
     void clear() {
       Circuit::clear();

@@ -20,7 +20,7 @@ BDD PickValidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all)
 {
   size_t i = 0;
   BDD next = next_all.PickOneMinterm(ckt.dff_vars);
-  while (GetPIs(ckt.getManager(), ckt.dff_io, prev,next).IsZero() && !(next_all.IsZero()))
+  while (GetPIs(ckt.getManager(), ckt.dffset, prev,next).IsZero() && !(next_all.IsZero()))
   {
     next_all -= next;
     next = next_all.PickOneMinterm(ckt.dff_vars);
@@ -33,7 +33,7 @@ BDD PickValidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all)
   
   return next;
 }
-BDD RemoveInvalidMintermFromImage(Cudd manager, const std::vector<BDD>& dff_vars, const std::map<int,BDD>& dff_io, const BDD& prev, BDD next_all)
+BDD RemoveInvalidMintermFromImage(Cudd manager, const std::vector<BDD>& dff_vars, const std::map<BDD,BDD>& dff_io, const BDD& prev, BDD next_all)
 {
   size_t i = 0;
   BDD next = next_all.PickOneMinterm(dff_vars);
@@ -54,7 +54,7 @@ BDD RemoveInvalidMintermFromImage(Cudd manager, const std::vector<BDD>& dff_vars
 }
 
 BDD RemoveInvalidMintermFromImage(CUDD_Circuit& ckt, const BDD& prev, BDD next_all) {
-  return RemoveInvalidMintermFromImage(ckt.getManager(), ckt.dff_vars, ckt.dff_io, prev, next_all);
+  return RemoveInvalidMintermFromImage(ckt.getManager(), ckt.dff_vars, ckt.dffset, prev, next_all);
 }
 extern int verbose_flag;
 BDD PickOneMintermWithDistribution(Cudd manager, BDD root, std::vector<BDD> vars, std::function<long double(long double, long double)> dist,std::map<int,int> reorder) 

@@ -51,17 +51,17 @@ TEST_GROUP(GetPIs_s1196)
 
 TEST(GetPIs_s1196, RandomImg)
 {
-  BDD prev = img(ckt->all_vars, ckt->getManager()).PickOneMinterm(ckt->dff_vars);
+  BDD prev = img(ckt->dff, ckt->dff_vars, ckt->getManager()).PickOneMinterm(ckt->dff_vars);
   CHECK(!(prev.IsZero()));
-  BDD next_all = img(ckt->all_vars,  prev, ckt->getManager()) - prev;
+  BDD next_all = img(ckt->dff, ckt->dff_vars,  prev, ckt->getManager()) - prev;
   BDD next = next_all.PickOneMinterm(ckt->dff_vars);
   int z = 0;
-  while(GetPIs(ckt->getManager(), ckt->dff_io, prev,next).IsZero() && !(next_all.IsZero())) {
+  while(GetPIs(ckt->getManager(), ckt->dffset, prev,next).IsZero() && !(next_all.IsZero())) {
     next_all -= next;
     next = next_all.PickOneMinterm(ckt->dff_vars);
     z++; 
   }
-  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
+  BDD result = GetPIs(ckt->getManager(), ckt->dffset, prev,next);
   verbose_flag = 0;
 
   CHECK(!(result.IsZero()));
@@ -87,9 +87,9 @@ TEST_GROUP(GetPIs_FromCkt)
 TEST(GetPIs_FromCkt, InitialCheck)
 {
   imgcache_t cache;
-  BDD prev = img(ckt->all_vars, ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
-  BDD next = (img(ckt->all_vars,  prev,ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
-  BDD pis = GetPIs(ckt->getManager(), ckt->dff_io, prev, next).PickOneMinterm(ckt->pi_vars);
+  BDD prev = img(ckt->dff, ckt->all_vars, ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  BDD next = (img(ckt->dff, ckt->all_vars,  prev,ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
+  BDD pis = GetPIs(ckt->getManager(), ckt->dffset, prev, next).PickOneMinterm(ckt->pi_vars);
   CHECK(!pis.IsZero());
 }
 TEST(GetPIs_FromCkt, Test100to101)
@@ -100,11 +100,11 @@ TEST(GetPIs_FromCkt, Test100to101)
   CHECK(next == (ckt->pi[4] * ~ckt->pi[5] * ckt->pi[6]));
   BDD checkval = ckt->pi[0] * ckt->pi[1] * ~ckt->pi[2];
   verbose_flag = 1;
-  BDD result = GetPIs(ckt->getManager(), ckt->dff_io, prev,next);
+  BDD result = GetPIs(ckt->getManager(), ckt->dffset, prev,next);
   verbose_flag = 0;
 
   CHECK(!result.IsZero());
-  CHECK(checkval == (GetPIs(ckt->getManager(), ckt->dff_io, prev,next) * checkval));
+  CHECK(checkval == (GetPIs(ckt->getManager(), ckt->dffset, prev,next) * checkval));
 }
 TEST_GROUP(GetPIs)
 {
@@ -112,7 +112,7 @@ TEST_GROUP(GetPIs)
   std::map<int,BDD> vars;
   std::map<int,BDD> pis;
   std::map<int,int> mapping;
-  std::map<int,BDD> funcs;
+  std::map<BDD,BDD> funcs;
 
   void setup()
   {
@@ -135,8 +135,8 @@ TEST_GROUP(GetPIs)
     for (int i = 0; i < 5; i++)
       mapping[i] = i;
 
-    funcs[1] = !(vars[4]*(!vars[1]+!vars[3])) + !((vars[2])*(!(vars[1])+!(vars[3])));
-    funcs[3] = ~(vars[0]) + ~(vars[1]) + ~((vars[2])*(~(vars[1])+~(vars[3])));
+    funcs[vars[1]] = !(vars[4]*(!vars[1]+!vars[3])) + !((vars[2])*(!(vars[1])+!(vars[3])));
+    funcs[vars[3]] = ~(vars[0]) + ~(vars[1]) + ~((vars[2])*(~(vars[1])+~(vars[3])));
 
   }
   void teardown()

@@ -11,20 +11,22 @@
 #include <vector>
 
 using std::make_pair;
-using imgcache_t = std::set< std::pair<const std::vector<BDD>, BDD> >;
+using cache_t = std::pair<std::map<int, BDD>, BDD>;
+using imgcache_t = std::map<cache_t, BDD> ;
 using vars_t = std::vector<BDD>;
+using funcs_t = std::map<int,BDD>;
 
    
-BDD img(const vars_t f, Cudd manager, imgcache_t& cache, const int split = 0);
-BDD img(const vars_t f, const BDD& C, Cudd manager, imgcache_t& cache, const int split = 0);
+BDD img(const funcs_t& g, const vars_t& f, Cudd manager, imgcache_t& cache, const int split = 0);
+BDD img(const funcs_t& g, const vars_t& f, BDD& C, Cudd manager, imgcache_t& cache, const int split = 0);
 
-inline BDD img(const vars_t f, Cudd manager, const int split = 0) {
+inline BDD img(const funcs_t& g, const vars_t& f, Cudd manager, const int split = 0) {
    imgcache_t cache;
-   return img(f,manager,cache);
+   return img(g, f,manager,cache);
 }
-inline BDD img(const vars_t f, const BDD& C, Cudd manager, const int split = 0) {
+inline BDD img(const funcs_t& g, const vars_t& f, BDD& C, Cudd manager, const int split = 0) {
    imgcache_t cache;
-   return img(f, C,manager,cache);
+   return img(g, f, C,manager,cache);
 }
 
 struct chain_t

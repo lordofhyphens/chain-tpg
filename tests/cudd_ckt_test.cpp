@@ -150,7 +150,7 @@ TEST(TEST_S1196, varcount)
 {
   CHECK_EQUAL(17+14, ckt->dff.size() +ckt->pi_vars.size());
   CHECK_EQUAL( ckt->dff.size() + ckt->pi_vars.size(), ckt->getManager().ReadSize());
-  img(ckt->all_vars,  ckt->getManager(), cache);
+  img(ckt->dff, ckt->all_vars,  ckt->getManager(), cache);
   CHECK_EQUAL(17+14, ckt->getManager().ReadSize());
 }
 
