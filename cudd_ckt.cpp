@@ -3,12 +3,15 @@
 #include "cuddObj.hh"
 #include <cstring>
 #include <string>
+#include <ostream>
 
+using std::string;
 using std::get;
 using std::tuple;
 using std::make_tuple;
 using std::make_pair;
 
+std::vector<std::string> delimited_string(const std::string& line,  const std::string& separator, size_t start = 0);
 void CUDD_Circuit::add_minterm_to_graph(bool& had_minterm, bool& single_product, std::tuple<int, std::string>& products, std::string& outname, std::vector<std::string>& minterm_list)
 {
   if (had_minterm)
@@ -17,8 +20,17 @@ void CUDD_Circuit::add_minterm_to_graph(bool& had_minterm, bool& single_product,
 
     get<1>(products) = get<1>(products).substr(0,get<1>(products).find_last_of(","));
     auto outnode = NODEC(outname, OR, get<0>(products), get<1>(products));
+    int max_level = 0;
+    auto zip = delimited_string(get<1>(products),",");
+    for (auto p : zip){
+      auto it = std::find(graph->begin(), graph->end(), p);
+      if (it != graph->end())
+        max_level = (max_level > it->level ? max_level : it->level);
+    }
     if (get<0>(products) == 1)
+    {
       outnode.typ = BUFF;
+    }
 
     // "replace" the original output node with this one.
     if (it != graph->end())
@@ -26,10 +38,14 @@ void CUDD_Circuit::add_minterm_to_graph(bool& had_minterm, bool& single_product,
       outnode.po = it->po;
       graph->erase(it);
     }
+
     if (!single_product && get<0>(products) > 1)
       graph->pop_back();
     graph->push_back(outnode);
+    graph->back().level = max_level+1;
     graph->push_back(NODEC(outname+"_NOT", NOT, 1, outname));
+    graph->back().level = max_level+2;
+    
 
     get<1>(products) = "";
     get<0>(products) = 0;
@@ -339,6 +355,7 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
   std::vector<std::string> minterm_list;
   std::tuple<int, std::string> products = make_tuple(0, std::string(""));
   std::string outname = "";
+  std::stack<std::pair<std::string, std::string>> dff_stack;
   bool single_minterm_product = false;
   for( auto& line_orig: lines(file) )
   {
@@ -367,14 +384,17 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
             {
               graph->push_back(NODEC(gname+"_IN", DFF_IN, 1, src)); // actually add the output node
               graph->back().po = true;
-              auto it = std::find(graph->begin(), graph->end(), gname);
+              dff_stack.push(make_pair(src,gname+"_IN"));
+              auto it = std::find(graph->begin(), graph->end(), NODEC(gname, UNKN));
               if (it == graph->end()) 
                 graph->push_back(NODEC(gname,DFF));
               else
               {
                 it->typ = DFF;
+                it->level = 0;
               }
               graph->push_back(NODEC(gname+"_NOT", NOT, 1, gname)); // actually add the output node
+              graph->back().level = 1;
             }
             break;
           default: 
@@ -398,7 +418,9 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
       for (auto &gname : delimited_string(line, " ", pos+1)) {
         if (gname == "" || gname == " ") continue;
         graph->push_back(NODEC(gname, INPT));
+        graph->back().level = 0;
         graph->push_back(NODEC(gname+"_NOT", NOT, 1, gname));
+        graph->back().level = 1;
       }
       continue;
     }
@@ -434,7 +456,9 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
     if (line.size() == 1)
     {
       graph->push_back(NODEC(outname, CONST1));
+      graph->back().level = 0;
       graph->push_back(NODEC(outname+"_NOT", NOT, 1, outname));
+      graph->back().level = 1;
       had_minterm = false;
       continue;
     }
@@ -471,27 +495,33 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
     else
     {
       graph->push_back(NODEC(outname+"_"+std::to_string(get<0>(products)),AND,get<0>(fins), get<1>(fins)));
+      if (outname+"_"+std::to_string(get<0>(products)) == "G10_3")
+        assert(graph->back().name == "G10_3");
+      int max_level = 0;
+      auto zip = delimited_string(get<1>(fins),",");
+      for (auto p : zip){
+        auto it = std::find(graph->begin(), graph->end(), p);
+        if (it != graph->end())
+          max_level = (max_level > it->level ? max_level : it->level);
+      }
+      graph->back().level = max_level+1;
+
       // make a new sub-gate for the product, add it to the product list
       get<1>(products) += outname+"_"+std::to_string(get<0>(products))+",";
+      if (verbose_flag)
+        std::cerr << "product list: " << "(" << outname+"_"+std::to_string(get<0>(products)) << ")" << get<1>(products) << "\n";
       get<0>(products)++;
     }
     minterm_id = 0;
   }
-  // post-processing: do check on all outputs. Anything that has a _in suffix probably has a corresponding 
-  // name in the input list. If there is one, change the output type to DFF and the corresponding input to DFF_IN
-	auto it = remove_if(graph->begin(),graph->end(),isUnknown);
-  //graph->resize(it - graph->begin());
-  for (auto& node : *graph) 
-  {
-    if (node.po && node.typ != DFF_IN)
-    {
-      auto pos = node.name.find("_in");
-      pos = (pos == std::string::npos ?  node.name.find("_IN") : pos);
-      if (pos != std::string::npos) {
-        std::find(graph->begin(), graph->end(), node.name.substr(0,pos))->typ = DFF;
-        node.typ = DFF_IN;
-      }
-    }
+  while (!dff_stack.empty()) { 
+    auto z = dff_stack.top(); 
+    if (verbose_flag)
+      std::cerr << "Assigning level to " << z.second << " from " << z.first << "\n";
+    auto dff1 = std::find(graph->begin(), graph->end(), z.second);
+    auto dffsrc = std::find(graph->begin(), graph->end(), z.first);
+    dff1->level = dffsrc->level+1;
+    dff_stack.pop(); 
   }
   relabel();
   it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
