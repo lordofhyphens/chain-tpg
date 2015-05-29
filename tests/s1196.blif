@@ -1,6 +1,6 @@
 .model s1196.blif
 .inputs G0 G1 G2 G3 G4 G5 G6 G7 G8 G9 G10 G11 G12 G13
-.outputs G546 G539 G550 G551 G552 G547 G548 G549 G530 G45 G542 G532 G535 G537
+.outputs G546 G539 G550 G551 G552 G547 G548 G549 G530 G45o G542 G532 G535 G537
 .latch    G502 G29   3
 .latch    G503 G30   3
 .latch    G504 G31   3
@@ -18,9 +18,11 @@
 .latch    G516 G43   3
 .latch    G517 G44   3
 .latch    G518 G45   3
-.latch    G519 G46   3
+
 .names G41 G546
 0 1
+.names G45 G45o
+1 1
 .names G451 G452 G453 G539
 1-- 1
 -1- 1

@@ -1,4 +1,5 @@
 #include "cudd_ckt.h"
+#include "bdd_util.h"
 #include "cuddObj.hh"
 #include <cstring>
 #include <string>
@@ -84,7 +85,7 @@ DFF_DumpDot(
 void CUDD_Circuit::form_bdds()
 {
   _manager.AutodynEnable(CUDD_REORDER_SIFT);
-
+  auto varpos = 0;
   for (auto gate = graph->begin(); gate < graph->end(); gate++)
   {
     const auto pos = gate - graph->begin();
@@ -95,20 +96,20 @@ void CUDD_Circuit::form_bdds()
     {
       case DFF:
       case INPT:
-        result  = _manager.bddVar(pos);
+        result  = _manager.bddVar(varpos);
         if (gate->typ == DFF)
         {
-          Cudd_bddSetNsVar(_manager.getManager(), pos);
+          Cudd_bddSetNsVar(_manager.getManager(), varpos);
           dff_vars.push_back(result);
-          all_vars.push_back(result);
         }
         else
         {
-          Cudd_bddSetPiVar(_manager.getManager(), pos);
+          Cudd_bddSetPiVar(_manager.getManager(), varpos);
           pi_vars.push_back(result);
-          all_vars.push_back(result);
         }
-        pi[pos] = result;
+        all_vars.push_back(result);
+        varpos++;
+        pi.insert(std::make_pair(pos, result));
         break;
       case NOT:
         try 
@@ -224,6 +225,8 @@ BDD CUDD_Circuit::PermuteFunction(const BDD& orig, const int diff)
     {
       result -= result.PickOneMinterm(all_vars);
     }
+    if (verbose_flag)
+      std::cerr << PrintCover(result);
     return result;
   } 
   else if (result == _manager.bddZero())
@@ -232,6 +235,8 @@ BDD CUDD_Circuit::PermuteFunction(const BDD& orig, const int diff)
     {
       result += (_manager.bddOne() - result).PickOneMinterm(all_vars);
     }
+    if (verbose_flag)
+      std::cerr << PrintCover(result);
     return result;
   }
 
@@ -251,7 +256,9 @@ BDD CUDD_Circuit::PermuteFunction(const BDD& orig, const int diff)
   }
   result += add;
   result -= rem;
-  return result;
+  if (verbose_flag)
+    std::cerr << PrintCover(result) << "\n";
+  return std::move(result);
 }
 // constrain the BDDs
 std::tuple<std::vector<bool>, BDD> CUDD_Circuit::NextState(BDD state, BDD input)
@@ -464,6 +471,7 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
     if (node.po && node.typ != DFF_IN)
     {
       auto pos = node.name.find("_in");
+      pos = (pos == std::string::npos ?  node.name.find("_IN") : pos);
       if (pos != std::string::npos) {
         std::find(graph->begin(), graph->end(), node.name.substr(0,pos))->typ = DFF;
         node.typ = DFF_IN;

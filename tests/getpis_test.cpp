@@ -51,10 +51,9 @@ TEST_GROUP(GetPIs_s1196)
 
 TEST(GetPIs_s1196, RandomImg)
 {
-  std::map<BDD_map_pair, BDD> cache;
-  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  BDD prev = img(ckt->all_vars, ckt->getManager()).PickOneMinterm(ckt->dff_vars);
   CHECK(!(prev.IsZero()));
-  BDD next_all = img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(), cache) - prev;
+  BDD next_all = img(ckt->all_vars,  prev, ckt->getManager()) - prev;
   BDD next = next_all.PickOneMinterm(ckt->dff_vars);
   int z = 0;
   while(GetPIs(ckt->getManager(), ckt->dff_io, prev,next).IsZero() && !(next_all.IsZero())) {
@@ -87,9 +86,9 @@ TEST_GROUP(GetPIs_FromCkt)
 
 TEST(GetPIs_FromCkt, InitialCheck)
 {
-  std::map<BDD_map_pair, BDD> cache;
-  BDD prev = img(ckt->dff, ckt->dff_pair,ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
-  BDD next = (img(ckt->dff, ckt->dff_pair, prev,ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
+  imgcache_t cache;
+  BDD prev = img(ckt->all_vars, ckt->getManager(), cache).PickOneMinterm(ckt->dff_vars);
+  BDD next = (img(ckt->all_vars,  prev,ckt->getManager(), cache) - prev).PickOneMinterm(ckt->dff_vars);
   BDD pis = GetPIs(ckt->getManager(), ckt->dff_io, prev, next).PickOneMinterm(ckt->pi_vars);
   CHECK(!pis.IsZero());
 }

@@ -1,4 +1,5 @@
 #include "../cudd_ckt.h"
+#include "../bdd_img.h"
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/TestOutput.h"
 
@@ -110,6 +111,49 @@ TEST(TEST_S27_V, dffvars)
   CHECK_EQUAL(3, ckt->dff_vars.size());
   CHECK_EQUAL(3, ckt->dff.size());
 }
+
+TEST_GROUP(TEST_S1196)
+{
+  // test our bench reader with s1196.bench initially, we can (probably) take 
+  // other formats later.
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  imgcache_t cache;
+
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/s1196.blif");
+    // DFF gates are 15, 1196, 28
+    ckt->form_bdds();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+TEST(TEST_S1196, pivars)
+{
+  CHECK_EQUAL(14, ckt->pi_vars.size());
+}
+TEST(TEST_S1196, povars)
+{
+  CHECK_EQUAL(14, ckt->po.size());
+}
+TEST(TEST_S1196, dffvars)
+{
+  CHECK_EQUAL(17, ckt->dff_vars.size());
+  CHECK_EQUAL(17, ckt->dff.size());
+}
+TEST(TEST_S1196, varcount) 
+{
+  CHECK_EQUAL(17+14, ckt->dff.size() +ckt->pi_vars.size());
+  CHECK_EQUAL( ckt->dff.size() + ckt->pi_vars.size(), ckt->getManager().ReadSize());
+  img(ckt->all_vars,  ckt->getManager(), cache);
+  CHECK_EQUAL(17+14, ckt->getManager().ReadSize());
+}
+
 
 
 TEST_GROUP(TEST_S27)
