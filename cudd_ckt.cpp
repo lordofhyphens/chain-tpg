@@ -225,14 +225,13 @@ void CUDD_Circuit::form_bdds()
         net[pos] = result;
     }
   }
-  // Don't need the intermediate gate node BDDs, so clear them so 
-  // garbage collection can happen.
-  assert(dff_pair.size() > 0);
   for (auto& id : dff_pair)
   {
     dff_io[id.second] = dff[id.first];
     dffset[id.second] = make_pair(net.at(id.first),net.at(id.second));
   }
+  // Don't need the intermediate gate node BDDs, so clear them so 
+  // garbage collection can happen.
   net.clear();
   _manager.AutodynDisable();
 }
