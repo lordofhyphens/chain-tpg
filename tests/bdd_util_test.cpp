@@ -14,12 +14,12 @@ TEST_GROUP(Ckt_BDD_Util)
 {
   std::unique_ptr<CUDD_Circuit> ckt = nullptr;
   Cudd manager;
-  std::map<BDD_map_pair, BDD> cache;
+  imgcache_t cache;
 
   void setup()
   {
 
-    cache = std::map<BDD_map_pair, BDD>();
+    cache = imgcache_t();
     ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
     Cudd_Srandom(0);
     ckt->read_blif("tests/b15.blif", true);
@@ -37,8 +37,8 @@ TEST_GROUP(Ckt_BDD_Util)
 
 TEST(Ckt_BDD_Util, PickValidMinterm)
 {
-  BDD prev = img(ckt->dff, ckt->dff_pair, ckt->getManager(),cache);
-  BDD next_all = img(ckt->dff, ckt->dff_pair, prev, ckt->getManager(),cache);
+  BDD prev = img(ckt->all_vars,  ckt->getManager(),cache);
+  BDD next_all = img(ckt->all_vars,  prev, ckt->getManager(),cache);
   verbose_flag = 1;
   BDD next = PickValidMintermFromImage(*ckt, prev, next_all);
   verbose_flag = 0;
@@ -52,7 +52,7 @@ TEST_GROUP(BDD_Util)
   std::map<int,BDD> vars;
   std::map<int,int> mapping;
   std::map<int,BDD> funcs;
-  std::map<BDD_map_pair, BDD> cache;
+  imgcache_t cache;
   std::map<int, int> distmapping;
 
   void setup()

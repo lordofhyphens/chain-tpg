@@ -6,14 +6,26 @@
 #include <cuddObj.hh>
 
 #include <algorithm>
-#include <map>
+#include <set>
 #include <iostream>
-using BDD_map = std::map<int, BDD>;
-using BDD_map_pair = std::pair<BDD_map, BDD>;
-using std::make_pair;
+#include <vector>
 
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, Cudd manager, std::map<BDD_map_pair, BDD>& cache, const int split = 0);
-BDD img(const std::map<int, BDD> f, std::map<int, int> mapping, const BDD& C, Cudd manager,std::map<BDD_map_pair, BDD>& cache, const int split = 0);
+using std::make_pair;
+using imgcache_t = std::set< std::pair<const std::vector<BDD>, BDD> >;
+using vars_t = std::vector<BDD>;
+
+   
+BDD img(const vars_t f, Cudd manager, imgcache_t& cache, const int split = 0);
+BDD img(const vars_t f, const BDD& C, Cudd manager, imgcache_t& cache, const int split = 0);
+
+inline BDD img(const vars_t f, Cudd manager, const int split = 0) {
+   imgcache_t cache;
+   return img(f,manager,cache);
+}
+inline BDD img(const vars_t f, const BDD& C, Cudd manager, const int split = 0) {
+   imgcache_t cache;
+   return img(f, C,manager,cache);
+}
 
 struct chain_t
 {
@@ -45,11 +57,11 @@ struct chain_t
 struct isSingleton {
   const  int T;
   isSingleton(int _T) : T(_T) {}
-  bool operator()(const std::pair<std::vector<BDD>, int>& a) { return (a.second <= T);}
+  bool operator()(const BDD& a) { return (a <= T);}
   bool operator()(const chain_t& a) { return (a.size <= T);}
 };
 
-bool isConstant(const std::pair<int, BDD>& f);
+bool isConstant(const BDD& f);
 
 BDD LeftShift(const Cudd& manager, const BDD& dd);
 BDD RightShift(const Cudd& manager, const BDD& dd);

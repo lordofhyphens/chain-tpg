@@ -27,6 +27,7 @@ int main(int argc, char* const argv[])
   int arg = 0;
   int option_index = 0;
   int save_flag = 0;
+  int support_flag = 0;
   
   while (1)
   {
@@ -36,6 +37,7 @@ int main(int argc, char* const argv[])
       {"verbose", no_argument,       &verbose_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
       {"save",   no_argument,       &save_flag, 1},
+      {"support",   no_argument,       &support_flag, 1},
       /* These options don't set a flag.
          We distinguish them by their indices. */
       {"help",     no_argument,       0, 'h'},
@@ -126,8 +128,51 @@ int main(int argc, char* const argv[])
     std::clog << infile << "\n";
     ckt.read_bench(infile.c_str());
   }
-
   ckt.form_bdds();
+
+  if (support_flag) {
+    std::pair<int,int> biggest = std::make_pair(-1,-1);
+    for (int j = 0; j < ckt.dff.size(); j++)
+    {
+      auto iter = ckt.dff.begin();
+      for (int i = 0; i < j; i++)
+      {
+        iter++;
+      }
+      BDD support = iter->second.Support();
+      int picount = 0;
+      for (auto v : ckt.pi_vars)
+      {
+        if (ckt.getManager().bddIsPiVar(v) && support <= v)
+          picount++;
+      }
+      std::cout << j << " PI support " << picount<< "\n";
+
+      if (picount > biggest.second)
+        biggest = std::make_pair(j, picount);
+    }
+
+    std::cout << "Largest PI support DFF only " << biggest.first << ", count " << biggest.second<< "\n";
+    for (int j = 0; j < ckt.po.size(); j++)
+    {
+      auto iter = ckt.po.begin();
+      for (int i = 0; i < j; i++)
+      {
+        iter++;
+      }
+      BDD support = iter->second.Support();
+      int picount = 0;
+      for (auto v : ckt.pi_vars)
+      {
+        if (ckt.getManager().bddIsPiVar(v) && support <= v)
+          picount++;
+      }
+
+      if (picount > biggest.second)
+        biggest = std::make_pair(j+ckt.dff.size(), picount);
+    }
+    std::cout << "Largest PI support count (overall) " << biggest.first << ", count " << biggest.second<< "\n";
+  }
 
   BDD state = (initial_state == "" ? ckt.getManager().bddOne().PickOneMinterm(ckt.dff_vars) : ckt.get_minterm_from_string(initial_state));
   BDD inp;
@@ -157,10 +202,10 @@ int main(int argc, char* const argv[])
      
   if (save_flag)
   {
-      state_dump << PrintCover(state) << "\n";
+      state_dump << PrintCover(state);
   }
 
-  for (int i = 1; i < length; i++)
+  for (int i = 0; i < length; i++)
   {
     if (save_flag)
     {
@@ -171,7 +216,7 @@ int main(int argc, char* const argv[])
     if (save_flag)
     {
       out_dump << get<1>(a);
-      state_dump << PrintCover(state) << "\n";
+      state_dump << PrintCover(state);
     }
     else
       std::cout << get<1>(a);
@@ -181,6 +226,7 @@ int main(int argc, char* const argv[])
     else
     {
       inp = ckt.get_minterm_from_string(*inp_it); inp_it++;
+      if (inp_it == lines(inpfile).end()) { i = length;}
     }
   } 
 

@@ -166,31 +166,27 @@ int main(int argc, char* const argv[])
   while (total_mutants< mutant_count && !abort)
   {
     int j = 0;
+    auto last = mutants[j].size(); 
     if (function < 0)
     {
       // random functions
       for (auto &f : ckt.dff) 
       {
-        auto last = mutants[j].size(); 
         mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),1));
         std::sort(mutants[j].begin(), mutants[j].end());
         auto it = std::unique(mutants[j].begin(), mutants[j].end());
         mutants[j].resize(std::distance(mutants[j].begin(), it));
-        if (last < mutants[j].size())
-          total_mutants++;
-        j++;
       }
       for (auto &f : ckt.po) 
       {
-        auto last = mutants[j].size(); 
         mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),1));
         std::sort(mutants[j].begin(), mutants[j].end());
         auto it = std::unique(mutants[j].begin(), mutants[j].end());
         mutants[j].resize(std::distance(mutants[j].begin(), it));
-        if (last < mutants[j].size())
-          total_mutants++;
-        j++;
       }
+      if (last < mutants[j].size())
+        total_mutants+= (mutants[j].size() - last);
+      j = mutants->size();
       if (total_mutants % 100) 
       {
         std::cerr << "Finished generating " << total_mutants << " mutant functions. \n";
@@ -218,13 +214,17 @@ int main(int argc, char* const argv[])
       mutants[j].resize(std::distance(mutants[j].begin(), it));
       if (last < mutants[j].size())
         total_mutants++;
-      j++;
+      j = mutants->size();
+      if (total_mutants % 100) 
+      {
+        std::cerr << "Finished generating " << total_mutants << " mutant functions. \n";
+      }
     }
 
   }
   std::cerr << "Formed all mutants, dumping to files." << "\n";
 
-  int victim = rand() %ckt.all_vars.size();
+  int victim = (function < 0 ? rand() %ckt.all_vars.size() : function);
   DdNode** outfuncs = new DdNode*[ckt.all_vars.size()];
 
   char** outnames = new char*[ckt.all_vars.size()];
@@ -235,15 +235,23 @@ int main(int argc, char* const argv[])
     innames[y] = (char*)ckt.at(f.first).name.c_str();
     y++;
   }   
-  for (int j = 0; j < mutant_count; j++) {
+  for (int j = 0; j < mutants->size(); j++) {
     std::string temp;
     int z = 0;
     for (auto &f : ckt.dff) {
       if (z == victim) 
       {
-        outfuncs[z] = mutants[z].back().getNode();
-        mutants[z].pop_back();
-        outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
+        if (function < 0)
+        {
+          outfuncs[z] = mutants[z].back().getNode();
+          mutants[z].pop_back();
+          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
+        }
+        else {
+          outfuncs[z] = mutants->back().getNode();
+          mutants->pop_back();
+          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
+        }
       }
       else 
       {
@@ -267,6 +275,7 @@ int main(int argc, char* const argv[])
       z++;
     }
     FILE* fp = fopen((infile + "-"+std::to_string(j)+".blif").c_str(),"w");
+    std::cerr << "Dumping to " << (infile + "-"+std::to_string(j)+".blif") << "\n";
     Dddmp_cuddBddArrayStoreBlif(ckt.getManager().getManager(), z, outfuncs, innames, outnames, (char*)(ckt.getName().c_str()), "test2" , fp);
     fclose(fp);
   }

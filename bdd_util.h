@@ -31,7 +31,7 @@ inline std::ostream& PrintCover(BDD& node, std::ostream& out)
 {
   return Cudd_bddStreamCover(node.manager(), node.getNode(), node.getNode(), out);
 }
-inline std::string PrintCover(BDD& node)
+inline std::string PrintCover(const BDD& node)
 {
   std::stringstream str1;
   Cudd_bddStreamCover(node.manager(), node.getNode(), node.getNode(), str1);

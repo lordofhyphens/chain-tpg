@@ -256,7 +256,7 @@ int main(int argc, char* const argv[])
   std::vector<std::map<unsigned int, bool> > inputs;
   std::string infile(argv[1]);
   Cudd_Srandom(time(NULL));
-  std::map<BDD_map_pair, BDD> cache;
+  imgcache_t cache;
   ckt.getManager().AutodynEnable(CUDD_REORDER_SIFT);
 
   // Register signal and signal handler
@@ -399,7 +399,7 @@ int main(int argc, char* const argv[])
     std::cerr << __FILE__ << ": " <<"POs: " << ckt.po.size() << ", DFFs: " << ckt.dff.size() << "\n";
 
 
-  BDD possible = img(ckt.dff, ckt.dff_pair, ckt.getManager(), cache);
+  BDD possible = img(ckt.all_vars, ckt.getManager(), cache);
 
   BDD allterm = possible;
   long int possible_count = possible.CountMinterm(ckt.dff.size());
@@ -429,14 +429,14 @@ int main(int argc, char* const argv[])
       });
   if (allrand > 0) {
     for (auto i = 0; i < allrand; i++) {
-      BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
+      BDD next_img = img(ckt.all_vars, next, ckt.getManager(),cache);
       next = PickValidMintermFromImage(ckt, next, next_img);
       BDD pi = GetPIs(ckt.getManager(), ckt.dff_io, std::get<1>(chain.back()), next);
       chain.push(pi, next);
     }
     quit = true;
   }
-  while ( !quit && (img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
+  while ( !quit && (img(ckt.all_vars, next, ckt.getManager(),cache) - next).CountMinterm(ckt.dff.size()) == 0 ) 
   { 
     std::cerr << __FILE__ << ": " <<"State has no next-states!" << "\n";
     deadends += next;
@@ -458,7 +458,7 @@ int main(int argc, char* const argv[])
   in_loop = true;
   do
   {
-    BDD next_img = img(ckt.dff, ckt.dff_pair, next, ckt.getManager(),cache);
+    BDD next_img = img(ckt.all_vars, next, ckt.getManager(),cache);
     BDD prev = next;
     next_img -= avoid;
     next_img -= deadends;
@@ -630,8 +630,8 @@ int main(int argc, char* const argv[])
   // 
   //
 
-  std::vector<chain_t>::iterator p = std::remove_if(all_chains.begin(), all_chains.end(), isSingleton(0));
-  all_chains.erase(p,all_chains.end());
+ // std::vector<chain_t>::iterator p = std::remove_if(all_chains.begin(), all_chains.end(), isSingleton(0));
+  //all_chains.erase(p,all_chains.end());
   std::cerr << __FILE__ << ": " <<"Took " << taken_time << "ms to form " << all_chains.size() << " chain";
   if (all_chains.size() == 1) std::cerr <<"s";
   std::cerr <<".\n";
