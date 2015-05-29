@@ -58,7 +58,6 @@ BDD _img(const funcs_t& g, const vars_t& f, Cudd manager, imgcache_t& cache, con
   } 
   else 
   {
-    std::cerr << "dff size: " << f.size() << ", " << manager.ReadSize() << "\n";
     BDD ncf, pcf;
     funcs_t v(g);
     funcs_t vn(g);
