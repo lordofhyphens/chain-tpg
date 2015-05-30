@@ -36,6 +36,10 @@ void CUDD_Circuit::add_minterm_to_graph(bool& had_minterm, bool& single_product,
     // "replace" the original output node with this one.
     if (it != graph->end())
     {
+      if (it->typ == DFF)
+      {
+        outnode.typ = it->typ;
+      }
       outnode.po = it->po;
       graph->erase(it);
     }
