@@ -29,6 +29,7 @@ int main(int argc, char* const argv[])
   int save_flag = 0;
   int support_flag = 0;
   int explore_flag = 0;
+  int level_flag = 1;
   
   while (1)
   {
@@ -37,6 +38,7 @@ int main(int argc, char* const argv[])
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
+      {"nolevel",   no_argument,       &level_flag, 0},
       {"save",   no_argument,       &save_flag, 1},
       {"support",   no_argument,       &support_flag, 1},
       {"explore",   no_argument,       &explore_flag, 1},
@@ -123,7 +125,7 @@ int main(int argc, char* const argv[])
   else if (infile.find("blif") != std::string::npos) 
   {
     std::clog << infile << "\n";
-    ckt.read_blif(infile.c_str());
+    ckt.read_blif(infile.c_str(), level_flag);
   }
   else
   {
