@@ -17,6 +17,7 @@ class CUDD_Circuit : public Circuit {
     std::map<int, BDD> dff; // internals flipflops
     std::map<int, BDD> net; // all internal netlist bdds generated.
     std::map<int, BDD> pi; // all of the input variables, DFFs and PIs
+    std::map<int, int> pimap; // all of the input variables, DFFs and PIs, mapped to their ckt 
     std::vector<BDD> pi_vars;
     std::vector<BDD> dff_vars;
     std::vector<BDD> all_vars;
@@ -48,6 +49,7 @@ class CUDD_Circuit : public Circuit {
     BDD InputBDD(std::string pis);
     BDD PermuteFunction(const BDD& orig, const int diff);
     void read_blif(const char* filename, bool do_levelize = true);
+    std::string write_blif() const;
     void relabel();
     BDD get_minterm_from_string(const std::string& minterm);
   private: 
