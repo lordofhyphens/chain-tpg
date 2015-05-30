@@ -168,7 +168,7 @@ TEST_GROUP(TEST_S1196)
   {
     ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
     Cudd_Srandom(0);
-    ckt->read_blif("tests/s1196.blif");
+    ckt->read_blif("tests/s1196.blif",true);
     // DFF gates are 15, 1196, 28
     ckt->form_bdds();
   }
@@ -200,6 +200,57 @@ TEST(TEST_S1196, varcount)
   CHECK_EQUAL(18+14, ckt->getManager().ReadSize());
 }
 
+TEST(TEST_S1196, dump) 
+{
+  std::cout << ckt->write_blif();
+}
+
+TEST_GROUP(TEST_S1196_2)
+{
+  // test our bench reader with s1196.bench initially, we can (probably) take 
+  // other formats later.
+  std::unique_ptr<CUDD_Circuit> ckt = nullptr;
+  imgcache_t cache;
+
+  void setup()
+  {
+    ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+    Cudd_Srandom(0);
+    ckt->read_blif("tests/s1196-2.blif", false);
+    // DFF gates are 15, 1196, 28
+    ckt->form_bdds();
+  }
+  void teardown()
+  {
+    ckt = nullptr;
+  }
+
+};
+TEST(TEST_S1196_2, dump) 
+{
+  std::cout << ckt->write_blif();
+}
+TEST(TEST_S1196_2, pivars)
+{
+  CHECK_EQUAL(14, ckt->pi_vars.size());
+}
+TEST(TEST_S1196_2, povars)
+{
+  CHECK_EQUAL(14, ckt->po.size());
+}
+TEST(TEST_S1196_2, dffvars)
+{
+  CHECK_EQUAL(18, ckt->dff_vars.size());
+  CHECK_EQUAL(18, ckt->dff.size());
+  CHECK_EQUAL(18, ckt->dffset.size());
+}
+TEST(TEST_S1196_2, varcount) 
+{
+  CHECK_EQUAL(18+14, ckt->dff.size() +ckt->pi_vars.size());
+  CHECK_EQUAL( ckt->dff.size() + ckt->pi_vars.size(), ckt->getManager().ReadSize());
+  img(ckt->dff, ckt->all_vars,  ckt->getManager(), cache);
+  CHECK_EQUAL(18+14, ckt->getManager().ReadSize());
+}
 
 
 TEST_GROUP(TEST_S27)
@@ -232,6 +283,30 @@ TEST(TEST_S27, povars)
 {
   CHECK_EQUAL(1, ckt->po.size());
 }
+TEST(TEST_S27, dump)
+{
+  std::ofstream z {"/tmp/TEST_S27_dump.blif"};
+  z << ckt->write_blif();
+  std::string str1 = ckt->write_blif();
+  z.close();
+  ckt = nullptr;
+  ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+  ckt->read_blif("/tmp/TEST_S27_dump.blif", false);
+  verbose_flag = 1;
+  ckt->form_bdds();
+  verbose_flag = 0;
+  std::cerr << ckt->write_blif();
+//  STRCMP_EQUAL(str1.c_str(), ckt->write_blif().c_str());
+  ckt = nullptr;
+  ckt = std::unique_ptr<CUDD_Circuit>(new CUDD_Circuit());
+  ckt->read_blif("/tmp/TEST_S27_dump.blif", false);
+  verbose_flag = 1;
+  ckt->form_bdds();
+  verbose_flag = 0;
+  std::cerr << ckt->write_blif();
+
+}
+
 TEST(TEST_S27, dffvars)
 {
   CHECK_EQUAL(3, ckt->dff_vars.size());
