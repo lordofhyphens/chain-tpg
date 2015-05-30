@@ -232,64 +232,39 @@ int main(int argc, char* const argv[])
         std::cerr << "Finished generating " << total_mutants << " mutant functions. \n";
       }
     }
-
   }
   std::cerr << "Formed all mutants, dumping to files." << "\n";
 
   int victim = (function < 0 ? rand() %ckt.all_vars.size() : function);
-  DdNode** outfuncs = new DdNode*[ckt.all_vars.size()];
-
-  char** outnames = new char*[ckt.all_vars.size()];
-  char** innames = new char*[ckt.all_vars.size()];
-  int y = 0;
-  for (auto &f : ckt.pi)
-  {
-    innames[y] = (char*)ckt.at(f.first).name.c_str();
-    y++;
-  }   
   for (int j = 0; j < mutants->size(); j++) {
     std::string temp;
+    CUDD_Circuit mutant_ckt(ckt);
     int z = 0;
-    for (auto &f : ckt.dff) {
+    for (auto f = begin(mutant_ckt.dff); f != end(mutant_ckt.dff); f++)
+    {
       if (z == victim) 
       {
-        if (function < 0)
-        {
-          outfuncs[z] = mutants[z].back().getNode();
-          mutants[z].pop_back();
-          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
-        }
-        else {
-          outfuncs[z] = mutants->back().getNode();
-          mutants->pop_back();
-          outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
-        }
-      }
-      else 
-      {
-        outfuncs[z] = f.second.getNode();
-        outnames[z] = (char*)ckt.at(f.first).name.c_str();
+        mutant_ckt.dff[f->first] = mutants->back();
+        mutants->pop_back();
       }
       z++;
     }
-    for (auto &f : ckt.po) {
+    for (auto f = begin(mutant_ckt.po); f != end(mutant_ckt.po); f++)
+    {
       if (z == victim) 
       {
-        outfuncs[z] = mutants[z].back().getNode();
-        mutants[z].pop_back();
-        outnames[z] = (char*)(ckt.at(f.first).name +"_1mut").c_str();
-      }
-      else 
-      {
-        outfuncs[z] = f.second.getNode();
-        outnames[z] = (char*)ckt.at(f.first).name.c_str();
+        mutant_ckt.po[f->first] = mutants->back();
+        mutants->pop_back();
       }
       z++;
     }
-    FILE* fp = fopen((infile + "-"+std::to_string(j)+".blif").c_str(),"w");
+
+
+
+    std::ofstream outfile(infile + "-"+std::to_string(j)+".blif");
     std::cerr << "Dumping to " << (infile + "-"+std::to_string(j)+".blif") << "\n";
-    Dddmp_cuddBddArrayStoreBlif(ckt.getManager().getManager(), z, outfuncs, innames, outnames, (char*)(ckt.getName().c_str()), "test2" , fp);
-    fclose(fp);
+    outfile << mutant_ckt.write_blif();
+    outfile.close();
   }
   exit(0);
 
