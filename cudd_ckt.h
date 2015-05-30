@@ -36,6 +36,7 @@ class CUDD_Circuit : public Circuit {
       dff_io.clear();
     }
     CUDD_Circuit(Cudd manager) : Circuit(),  _manager(manager) { };
+    CUDD_Circuit(const CUDD_Circuit& other);
     CUDD_Circuit() : Circuit() { 
       _manager = Cudd(0,0);
     };
