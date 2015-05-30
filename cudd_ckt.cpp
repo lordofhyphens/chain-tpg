@@ -3,6 +3,7 @@
 #include "cuddObj.hh"
 #include <cstring>
 #include <string>
+#include <stack>
 #include <ostream>
 
 using std::string;
