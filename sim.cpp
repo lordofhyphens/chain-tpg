@@ -233,7 +233,7 @@ int main(int argc, char* const argv[])
         auto a = bddsim(ckt, state, inp);
         int l = 0;
         // try to get to a state we haven't visted yet if available
-        while (l < 500 && get<0>(a) < visited) {
+        while (l < 5000 && get<0>(a) < visited) {
           inp = ckt.getManager().bddOne().PickOneMinterm(ckt.pi_vars);
           a = bddsim(ckt, state, inp);
           l++;
