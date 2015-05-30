@@ -160,6 +160,14 @@ int main(int argc, char* const argv[])
   }
   ckt.form_bdds();
 
+  if (clone_flag) {
+    std::clog << "Dumping a copy of " << infile <<"\n";
+    std::ofstream out(infile+"-clone");
+    out << ckt->write_blif();
+    out.close();
+    exit(0);
+  }
+
   std::cerr << "Generating " << mutant_count << " mutants." << "\n";
   std::vector<BDD>* mutants = new std::vector<BDD>[ckt.all_vars.size()];
   bool abort = false;
@@ -211,10 +219,7 @@ int main(int argc, char* const argv[])
         func++;
       auto last = mutants[j].size(); 
 
-      if (clone_flag)
-        mutants[j].push_back(func->second);
-      else
-        mutants[j].push_back(ckt.PermuteFunction(func->second.Constrain(state),1));
+      mutants[j].push_back(ckt.PermuteFunction(func->second.Constrain(state),1));
 
       std::sort(mutants[j].begin(), mutants[j].end());
       auto it = std::unique(mutants[j].begin(), mutants[j].end());
