@@ -530,48 +530,95 @@ void CUDD_Circuit::read_blif(const char* filename, bool do_levelize)
     dff1->level = dffsrc->level+1;
     dff_stack.pop(); 
   }
-  relabel();
-  it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
-    return (g.po == false && g.nfo == 0 && g.typ != DFF_IN);
-  });
-  //graph->resize(it - graph->begin());
-  it = remove_if(graph->begin(), graph->end(), [](const NODEC& g) -> bool {
-    return (g.nfi == 0 && g.typ != DFF && g.typ != INPT);
-  });
-  graph->resize(it - graph->begin());
-  // clear all fin/fot labeling
-  for (auto& node : *graph) 
-  {
-    node.fot.clear();
-    node.fin.clear();
-  }
+  graph->erase(std::remove_if(graph->begin(), graph->end(), [](NODEC c){return c.typ == UNKN;}),graph->end());
   relabel();
   annotate(graph);
-  // clean up junk
-  if (verbose_flag)
-    print();
-  
+  for (auto node : *graph)
+  {
+    assert(node.nfi == node.fin.size());
+  }
+
   if (do_levelize)
   {
     levelize();
-    std::sort(graph->begin(), graph->end());
-    for (auto& node : *graph) 
-    {
-      node.fot.clear();
-      node.fin.clear();
-    }
-    relabel();
-    levelize();
-    annotate(graph);
-    levelize();
   }
-
-	it = remove_if(graph->begin(),graph->end(),[&](const NODEC& n) -> bool 
-  { return (n.fot.size() == 0 && !n.po) || (n.fin.size() == 0 && n.fot.size()==0) || n.name == "";});
-  graph->resize(it - graph->begin());
+  graph->erase(std::remove_if(graph->begin(), graph->end(), [](NODEC c){return (!(c.po && c.typ == DFF_IN) && c.nfo == 0);}),graph->end());
+  //graph->erase(std::remove_if(graph->begin(), graph->end(), [](NODEC c){return (!(c.typ == INPT || c.typ == CONST1 || c.typ == DFF) && c.nfi == 0);}),graph->end());
   std::sort(graph->begin(), graph->end());
+  //print();
   annotate(graph);
   relabel();
+}
+
+
+// BLIF
+// .model cktname
+// .inputs <-- PIs map
+// .outputs <-- POs map
+// .latch inp outp 3 <-- inp is the DFF_IN, outp is DFF
+//
+// for each function in .outputs, get its support, write those names in the first line
+// then print the cover of the minterms, filtering out the positions we don't need.
+//
+// finish with .end
+using std::endl;
+std::string CUDD_Circuit::write_blif() const
+{ 
+  std::stringstream outstream;
+  outstream << ".model " << name << endl;
+  outstream << ".inputs ";
+  for (auto& n: pi)
+  {
+    if (graph->at(n.first).typ == INPT)
+      outstream << graph->at(n.first).name << " ";
+  }
+  outstream << endl;
+  outstream << ".outputs ";
+  for (auto& n: po)
+  {
+      outstream << graph->at(n.first).name << " ";
+  }
+  outstream << endl;
+  for (auto& n: dff)
+  {
+    outstream << ".latch " << graph->at(std::begin(graph->at(n.first).fin)->second).name << " " << 
+      graph->at(dff_pair.at(n.first)).name << " 3" << endl;
+  }
+  for (auto func : {dff, po})
+    for (auto& n: func)
+    {
+      if (func == po)
+      {
+        if (dff.count(n.first) > 0)
+          continue;
+      }
+      if (n.second == DD()) continue;
+      auto Z = n.second.Support();
+      auto bitstr_Z = PrintCover(Z);
+      outstream << ".names ";
+      for (auto& ip : pimap) {
+        if (PrintCover(Z)[ip.first] != '-')
+          outstream << graph->at(ip.second).name << " ";
+      }
+      if (func == dff)
+        outstream << graph->at(std::begin(graph->at(n.first).fin)->second).name << endl;
+      else
+        outstream << graph->at(n.first).name << endl;
+      std::string tmp = PrintCover(n.second);
+      auto it = bitstr_Z.cbegin();
+      tmp.erase(std::remove_if( std::begin(tmp), std::end(tmp),  [&it,&bitstr_Z] (const char c) -> bool { bool ret = (*(it++) == '-');if (c == '\n') it = bitstr_Z.cbegin(); return ret; } ), std::end(tmp));
+      auto strpos = tmp.find('\n');
+      while (strpos != std::string::npos)
+      {
+        tmp.insert(strpos, " 1");
+        strpos = tmp.find('\n', strpos+3);
+      }
+      
+      outstream << tmp;
+    }
+
+  outstream << ".end" << endl;
+  return outstream.str();
 }
 
 void CUDD_Circuit::relabel() {
