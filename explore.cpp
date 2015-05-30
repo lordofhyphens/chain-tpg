@@ -244,6 +244,7 @@ int main(int argc, char* const argv[])
   int arg;;
   int single_chain = 0;
   int partition_flag = 0;
+  int level_flag = 1;
   int do_backtrack = 1;
   int allrand = 0;
   std::string initial_state = "";
@@ -268,6 +269,7 @@ int main(int argc, char* const argv[])
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
+      {"nolevel",   no_argument,       &level_flag, 0},
       {"nobacktrack", no_argument,       &do_backtrack, 0},
       {"partition", no_argument,       &partition_flag, 1},
       {"single", no_argument, &single_chain, 1},
@@ -370,7 +372,7 @@ int main(int argc, char* const argv[])
   else if (infile.find("blif") != std::string::npos) 
   {
     std::clog << infile << "\n";
-    ckt.read_blif(infile.c_str());
+    ckt.read_blif(infile.c_str(), level_flag);
   }
   else
   {

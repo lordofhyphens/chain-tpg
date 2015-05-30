@@ -22,6 +22,7 @@ int main(int argc, char* const argv[])
 {
   CUDD_Circuit ckt;
   int mutant_count = 10;
+  int variance = 1;
   std::string infile(argv[1]);
   std::string initial_state = "";
   int arg = 0;
@@ -47,6 +48,7 @@ int main(int argc, char* const argv[])
       {"help",     no_argument,       0, 'h'},
       {"bench",     required_argument,       0, 'b'},
       {"mutants",     required_argument,       0, 'm'},
+      {"variance",     required_argument,       0, 'v'},
       {"function",    required_argument,       0, 'f'},
       {"trigger",    required_argument,       0, 't'},
       {"state",    required_argument,       0, 's'},
@@ -98,6 +100,13 @@ int main(int argc, char* const argv[])
         {
           auto argstr = std::string(optarg);
           function = std::stoi(argstr);
+        }
+        break;
+      case 'v':
+        // function decode
+        {
+          auto argstr = std::string(optarg);
+          variance = pow(2,std::stoi(argstr));
         }
         break;
       case 'h':
@@ -163,7 +172,7 @@ int main(int argc, char* const argv[])
   if (clone_flag) {
     std::clog << "Dumping a copy of " << infile <<"\n";
     std::ofstream out(infile+"-clone");
-    out << ckt->write_blif();
+    out << ckt.write_blif();
     out.close();
     exit(0);
   }
@@ -184,14 +193,14 @@ int main(int argc, char* const argv[])
       // random functions
       for (auto &f : ckt.dff) 
       {
-        mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),1));
+        mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),variance));
         std::sort(mutants[j].begin(), mutants[j].end());
         auto it = std::unique(mutants[j].begin(), mutants[j].end());
         mutants[j].resize(std::distance(mutants[j].begin(), it));
       }
       for (auto &f : ckt.po) 
       {
-        mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),1));
+        mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),variance));
         std::sort(mutants[j].begin(), mutants[j].end());
         auto it = std::unique(mutants[j].begin(), mutants[j].end());
         mutants[j].resize(std::distance(mutants[j].begin(), it));
@@ -213,18 +222,33 @@ int main(int argc, char* const argv[])
         std::cerr << "Requested function out of range\n";
         exit(1);
       }
+      if (function >= ckt.dff.size())
+      {
+        auto tmp = ckt.po.cbegin();
+        for (int i = 0; i < function - ckt.dff.size(); i++)
+          tmp++;
+        std::cerr << "Mutating function " << ckt.at(tmp->first).name << "\n";
+      }
+      else
+      { 
+      auto tmp = ckt.dff.cbegin();
+        for (int i = 0; i < function; i++)
+          tmp++;
+        std::cerr << "Mutating function " << ckt.at(tmp->first).name << "\n";
+      }
+
       auto func = (function < ckt.dff.size() ? ckt.dff.cbegin() : ckt.po.cbegin());
       // move iterator, as only ++ is defined
       for (auto z = (function < ckt.dff.size() ? function : function - ckt.dff.size())+1; z >0; z--)
         func++;
       auto last = mutants[j].size(); 
 
-      mutants[j].push_back(ckt.PermuteFunction(func->second.Constrain(state),1));
+      mutants[0].push_back(ckt.PermuteFunction(func->second.Constrain(state),variance));
 
-      std::sort(mutants[j].begin(), mutants[j].end());
-      auto it = std::unique(mutants[j].begin(), mutants[j].end());
-      mutants[j].resize(std::distance(mutants[j].begin(), it));
-      if (last < mutants[j].size())
+      std::sort(mutants[0].begin(), mutants[0].end());
+      auto it = std::unique(mutants[0].begin(), mutants[0].end());
+      mutants[0].resize(std::distance(mutants[0].begin(), it));
+      if (last < mutants[0].size())
         total_mutants++;
       j = mutants->size();
       if (total_mutants % 100) 
@@ -236,30 +260,19 @@ int main(int argc, char* const argv[])
   std::cerr << "Formed all mutants, dumping to files." << "\n";
 
   int victim = (function < 0 ? rand() %ckt.all_vars.size() : function);
-  for (int j = 0; j < mutants->size(); j++) {
+  for (int j = 0; j < mutants[0].size(); j++) {
     std::string temp;
     CUDD_Circuit mutant_ckt(ckt);
     int z = 0;
-    for (auto f = begin(mutant_ckt.dff); f != end(mutant_ckt.dff); f++)
+    if (victim >= mutant_ckt.dff.size())
     {
-      if (z == victim) 
-      {
-        mutant_ckt.dff[f->first] = mutants->back();
-        mutants->pop_back();
-      }
-      z++;
+      mutant_ckt.po[victim - mutant_ckt.dff.size()] = mutants[0].back();
     }
-    for (auto f = begin(mutant_ckt.po); f != end(mutant_ckt.po); f++)
+    else
     {
-      if (z == victim) 
-      {
-        mutant_ckt.po[f->first] = mutants->back();
-        mutants->pop_back();
-      }
-      z++;
+      mutant_ckt.dff[victim] = mutants[0].back();
     }
-
-
+    mutants[0].pop_back();
 
     std::ofstream outfile(infile + "-"+std::to_string(j)+".blif");
     std::cerr << "Dumping to " << (infile + "-"+std::to_string(j)+".blif") << "\n";
