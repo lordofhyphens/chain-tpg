@@ -39,8 +39,6 @@ void CUDD_Circuit::add_minterm_to_graph(bool& had_minterm, bool& single_product,
       graph->erase(it);
     }
 
-    if (!single_product && get<0>(products) > 1)
-      graph->pop_back();
     graph->push_back(outnode);
     graph->back().level = max_level+1;
     graph->push_back(NODEC(outname+"_NOT", NOT, 1, outname));
@@ -102,7 +100,7 @@ DFF_DumpDot(
 void CUDD_Circuit::form_bdds()
 {
   _manager.AutodynEnable(CUDD_REORDER_SIFT);
-  auto varpos = 0;
+  int varpos = 0;
   for (auto gate = graph->begin(); gate < graph->end(); gate++)
   {
     const auto pos = gate - graph->begin();
@@ -114,17 +112,24 @@ void CUDD_Circuit::form_bdds()
       case DFF:
       case INPT:
         result  = _manager.bddVar(varpos);
+        if (verbose_flag)
+          std::cerr << __FILE__ << ": " << __LINE__ << " gate is ";
         if (gate->typ == DFF)
         {
+          if (verbose_flag)
+            std::cerr << "dff";
           Cudd_bddSetNsVar(_manager.getManager(), varpos);
           dff_vars.push_back(result);
         }
         else
         {
+          if (verbose_flag)
+            std::cerr << "pi";
           Cudd_bddSetPiVar(_manager.getManager(), varpos);
           pi_vars.push_back(result);
         }
         all_vars.push_back(result);
+        pimap[varpos] = pos;
         varpos++;
         pi[pos] = result;
         net[pos] = result;
@@ -193,6 +198,9 @@ void CUDD_Circuit::form_bdds()
         }
         break;
 
+    }
+    if (gate->typ == DFF) {
+      if (gate->po) { po[pos] = pi[pos]; }
     }
 
     if (gate->typ == DFF_IN) {

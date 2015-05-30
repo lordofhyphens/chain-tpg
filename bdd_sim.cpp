@@ -15,8 +15,10 @@ simout_t bddsim(CUDD_Circuit& ckt, const BDD& state, const BDD& inp)
     //std::cerr << ff.first << "\n";
   }
   // untested!!
-  for (auto& ff : ckt.dff_io)
-    result.second.emplace(ff.first, (ff.second.Constrain(state).Constrain(inp).IsZero()));
+  for (auto& ff : ckt.po)
+    if (ckt.at(ff.first).typ != DFF_IN)
+      if (ckt.at(ff.first).typ != DFF)
+      result.second.emplace(ff.first, (ff.second.Constrain(state).Constrain(inp).IsZero()));
 
   return result;
 }
