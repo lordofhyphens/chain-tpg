@@ -243,10 +243,8 @@ int main(int argc, char* const argv[])
     else
     {
       inp = ckt.get_minterm_from_string(*inp_it); inp_it++;
-      if (inp_it == lines(inpfile).end()) { i = length;}
     }
   } 
-
 
   return 0;
 }
