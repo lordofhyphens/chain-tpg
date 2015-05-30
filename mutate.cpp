@@ -25,6 +25,8 @@ int main(int argc, char* const argv[])
   std::string infile(argv[1]);
   std::string initial_state = "";
   int arg = 0;
+  int clone_flag = 0;
+  int level_flag = 1;
   int option_index = 0;
   int function = -1; // specific output gate to mutate.
   BDD state = ckt.getManager().bddOne(); // State minterm to do all mutations from.
@@ -37,6 +39,8 @@ int main(int argc, char* const argv[])
     {
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
+      {"clone", no_argument,       &clone_flag, 1},
+      {"level", no_argument,       &level_flag, 0},
       {"brief",   no_argument,       &verbose_flag, 0},
       /* These options don't set a flag.
          We distinguish them by their indices. */
@@ -142,7 +146,7 @@ int main(int argc, char* const argv[])
   else if (infile.find("blif") != std::string::npos) 
   {
     std::clog << infile << "\n";
-    ckt.read_blif(infile.c_str());
+    ckt.read_blif(infile.c_str(), level_flag);
   }
   else
   {
@@ -207,7 +211,10 @@ int main(int argc, char* const argv[])
         func++;
       auto last = mutants[j].size(); 
 
-      mutants[j].push_back(ckt.PermuteFunction(func->second.Constrain(state),1));
+      if (clone_flag)
+        mutants[j].push_back(func->second);
+      else
+        mutants[j].push_back(ckt.PermuteFunction(func->second.Constrain(state),1));
 
       std::sort(mutants[j].begin(), mutants[j].end());
       auto it = std::unique(mutants[j].begin(), mutants[j].end());
