@@ -662,6 +662,6 @@ BDD CUDD_Circuit::get_minterm_from_string(const std::string& minterm)
   return std::move(result);
 }
 
-CUDD_Circuit::CUDD_Circuit(const CUDD_Circuit& other) : Circuit(other), po(other.po), dff(other.dff), _manager(other._manager) {
+CUDD_Circuit::CUDD_Circuit(const CUDD_Circuit& other) : Circuit(other), _manager(other._manager) {
   form_bdds();
 }
