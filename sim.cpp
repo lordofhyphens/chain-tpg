@@ -196,6 +196,11 @@ int main(int argc, char* const argv[])
     std::clog << "Output sent to " << infile + "-outputs" << "\n";
   }
 
+  for (auto& pog : ckt.po)
+  {
+    out_dump << ckt.at(pog.first).name << " ";
+  }
+  out_dump << "\n";
   std::ifstream inpfile(inputs);
   auto inp_it = lines(inpfile).begin();
   if (inputs == "")
