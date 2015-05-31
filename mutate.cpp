@@ -176,6 +176,7 @@ int main(int argc, char* const argv[])
     out.close();
     exit(0);
   }
+  std::cerr << ckt.po.size() << ", " << ckt.dff.size()<<std::endl;
 
   std::cerr << "Generating " << mutant_count << " mutants." << "\n";
   std::vector<BDD>* mutants = new std::vector<BDD>[ckt.all_vars.size()];
@@ -264,13 +265,20 @@ int main(int argc, char* const argv[])
     std::string temp;
     CUDD_Circuit mutant_ckt(ckt);
     int z = 0;
-    if (victim >= mutant_ckt.dff.size())
+    if (victim >= ckt.dff.size())
     {
-      mutant_ckt.po[victim - mutant_ckt.dff.size()] = mutants[0].back();
+      auto tmp = ckt.po.cbegin();
+      for (int i = 0; i < victim- ckt.dff.size(); i++)
+        tmp++;
+      mutant_ckt.po.at(tmp->first) = mutants[0].back();
     }
     else
     {
-      mutant_ckt.dff[victim] = mutants[0].back();
+      auto tmp = ckt.dff.cbegin();
+      for (int i = 0; i < victim; i++)
+        tmp++;
+
+      mutant_ckt.dff.at(tmp->first) = mutants[0].back();
     }
     mutants[0].pop_back();
 
