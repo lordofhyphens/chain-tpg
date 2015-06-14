@@ -25,6 +25,7 @@ class LogicBlock
     LogicBlock(std::string n, logic_t type) : type(type), primary_out(false), level(0), placed(false), _name(n) { }
     LogicBlock(std::string n, logic_t type, size_t level) : type(type), primary_out(false), level(level), placed(false), _name(n) { }
     std::string name() const { return _name; }
+    std::string name(std::string n) { _name = n; return _name; }
     void add_fanin(const LogicBlock& o) { fin.emplace_back(o._name); assert(o.name() == fin.back());}
 
     std::vector<std::string> fin;
