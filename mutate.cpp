@@ -1,8 +1,6 @@
 #undef _GLIBCXX_PARALLEL
-#include "cudd_ckt.h"
-#include "bdd_img.h"
-#include "bdd_util.h"
 
+#include "bdd_circuit.h"
 #include <fstream> // fstream needs to be declared before cudd
 #include <cudd.h>
 #include <dddmp.h>
@@ -20,7 +18,7 @@ inline trigger_t make_trigger (double min, double max) noexcept { return make_tu
 int verbose_flag = 0;
 int main(int argc, char* const argv[])
 {
-  CUDD_Circuit ckt;
+  BDDCircuit ckt;
   int mutant_count = 10;
   int variance = 1;
   std::string infile(argv[1]);
@@ -30,7 +28,7 @@ int main(int argc, char* const argv[])
   int level_flag = 1;
   int option_index = 0;
   int function = -1; // specific output gate to mutate.
-  BDD state = ckt.getManager().bddOne(); // State minterm to do all mutations from.
+  BDD state = ckt.manager.bddOne(); // State minterm to do all mutations from.
 
   std::tuple<double,double> trigger_rate = make_trigger(0.1, 0.5); // desired trigger rate.
 
@@ -139,7 +137,7 @@ int main(int argc, char* const argv[])
   Cudd_Srandom(time(NULL));
 
 
-  ckt.getManager().AutodynEnable(CUDD_REORDER_SIFT);
+  ckt.manager.AutodynEnable(CUDD_REORDER_SIFT);
 
   if (infile.empty()) 
   {
@@ -147,27 +145,21 @@ int main(int argc, char* const argv[])
     exit(1);
   }
   std::clog << "Loading circuit from file... ";
-  if (infile.find("level") != std::string::npos) 
-  {
-    std::clog << "presorted benchmark " << infile << " ";
-    ckt.load(infile.c_str());
-  } 
-  else if (infile.find("blif") != std::string::npos) 
+  if (infile.find("blif") != std::string::npos) 
   {
     std::clog << infile << "\n";
-    ckt.read_blif(infile.c_str(), level_flag);
+    ckt.read_blif(infile.c_str());
   }
   else
   {
-    std::clog << infile << "\n";
-    ckt.read_bench(infile.c_str());
+    exit(1);
   }
   if (verbose_flag)
   {
     std::cerr << __FILE__ << ": " <<"Printing ckt.\n";
     ckt.print();
   }
-  ckt.form_bdds();
+  ckt.to_bdd();
 
   if (clone_flag) {
     std::clog << "Dumping a copy of " << infile <<"\n";
@@ -176,10 +168,10 @@ int main(int argc, char* const argv[])
     out.close();
     exit(0);
   }
-  std::cerr << ckt.po.size() << ", " << ckt.dff.size()<<std::endl;
+  std::cerr << ckt.po.size() << ", " << ckt.flops.size()<<std::endl;
 
   std::cerr << "Generating " << mutant_count << " mutants." << "\n";
-  std::vector<BDD>* mutants = new std::vector<BDD>[ckt.all_vars.size()];
+  std::vector<BDD>* mutants = new std::vector<BDD>[ckt.pi.size() + ckt.flops.size()];
   bool abort = false;
   int total_mutants = 0;
 
@@ -192,16 +184,16 @@ int main(int argc, char* const argv[])
     if (function < 0)
     {
       // random functions
-      for (auto &f : ckt.dff) 
+      for (auto &f : ckt.bdd_flops) 
       {
         mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),variance));
         std::sort(mutants[j].begin(), mutants[j].end());
         auto it = std::unique(mutants[j].begin(), mutants[j].end());
         mutants[j].resize(std::distance(mutants[j].begin(), it));
       }
-      for (auto &f : ckt.po) 
+      for (auto &f : ckt.bdd_po) 
       {
-        mutants[j].push_back(ckt.PermuteFunction(f.second.Constrain(state),variance));
+        mutants[j].push_back(ckt.PermuteFunction(f.Constrain(state),variance));
         std::sort(mutants[j].begin(), mutants[j].end());
         auto it = std::unique(mutants[j].begin(), mutants[j].end());
         mutants[j].resize(std::distance(mutants[j].begin(), it));
@@ -218,33 +210,33 @@ int main(int argc, char* const argv[])
     {
       // convention, treat as list of dffs, pos in that order
       // just iterate through the map
-      if (function > ckt.dff.size() + ckt.po.size())
+      if (function > ckt.bdd_flops.size() + ckt.po.size())
       {
         std::cerr << "Requested function out of range\n";
         exit(1);
       }
-      if (function >= ckt.dff.size())
+      if (function >= ckt.bdd_flops.size())
       {
         auto tmp = ckt.po.cbegin();
-        for (int i = 0; i < function - ckt.dff.size(); i++)
+        for (int i = 0; i < function - ckt.bdd_flops.size(); i++)
           tmp++;
-        std::cerr << "Mutating function " << ckt.at(tmp->first).name << "\n";
+        std::cerr << "Mutating function " << *tmp << "\n";
       }
       else
       { 
-      auto tmp = ckt.dff.cbegin();
+      auto tmp = ckt.flops.cbegin();
         for (int i = 0; i < function; i++)
           tmp++;
-        std::cerr << "Mutating function " << ckt.at(tmp->first).name << "\n";
+        std::cerr << "Mutating function " << tmp->second << "\n";
       }
 
-      auto func = (function < ckt.dff.size() ? ckt.dff.cbegin() : ckt.po.cbegin());
+      auto func = (function < ckt.flops.size() ? to_vector<1>(ckt.bdd_flops).cbegin() : ckt.bdd_po.cbegin());
       // move iterator, as only ++ is defined
-      for (auto z = (function < ckt.dff.size() ? function : function - ckt.dff.size())+1; z >0; z--)
+      for (auto z = (function < ckt.flops.size() ? function : function - ckt.flops.size())+1; z >0; z--)
         func++;
       auto last = mutants[j].size(); 
 
-      mutants[0].push_back(ckt.PermuteFunction(func->second.Constrain(state),variance));
+      mutants[0].push_back(ckt.PermuteFunction(func->Constrain(state),variance));
 
       std::sort(mutants[0].begin(), mutants[0].end());
       auto it = std::unique(mutants[0].begin(), mutants[0].end());
@@ -260,25 +252,25 @@ int main(int argc, char* const argv[])
   }
   std::cerr << "Formed all mutants, dumping to files." << "\n";
 
-  int victim = (function < 0 ? rand() %ckt.all_vars.size() : function);
+  int victim = (function < 0 ? rand() % (ckt.pi.size() + ckt.flops.size()) : function);
   for (int j = 0; j < mutants[0].size(); j++) {
     std::string temp;
-    CUDD_Circuit mutant_ckt(ckt);
+    BDDCircuit mutant_ckt(ckt);
     int z = 0;
-    if (victim >= ckt.dff.size())
+    if (victim >= ckt.flops.size())
     {
-      auto tmp = ckt.po.cbegin();
-      for (int i = 0; i < victim- ckt.dff.size(); i++)
+      auto tmp = mutant_ckt.bdd_po.begin();
+      for (int i = 0; i < victim- ckt.bdd_flops.size(); i++)
         tmp++;
-      mutant_ckt.po.at(tmp->first) = mutants[0].back();
+      *tmp = mutants[0].back();
     }
     else
     {
-      auto tmp = ckt.dff.cbegin();
+      auto tmp = ckt.bdd_flops.begin();
       for (int i = 0; i < victim; i++)
         tmp++;
 
-      mutant_ckt.dff.at(tmp->first) = mutants[0].back();
+      tmp->second = mutants[0].back();
     }
     mutants[0].pop_back();
 
