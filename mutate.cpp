@@ -256,7 +256,6 @@ int main(int argc, char* const argv[])
   for (int j = 0; j < mutants[0].size(); j++) {
     std::string temp;
     BDDCircuit mutant_ckt(ckt);
-    int z = 0;
     if (victim >= ckt.flops.size())
     {
       auto tmp = mutant_ckt.bdd_po.begin();
