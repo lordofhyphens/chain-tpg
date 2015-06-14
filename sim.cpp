@@ -176,7 +176,7 @@ int main(int argc, char* const argv[])
     std::cout << "Largest PI support count (overall) " << biggest.first << ", count " << biggest.second<< "\n";
   }
 
-  BDD state = (initial_state == "" ? ckt.manager.bddOne().PickOneMinterm(to_vector<1>(ckt.bdd_flops)) : ckt.get_minterm_from_string(initial_state));
+  BDD state = (initial_state == "" ? ckt.manager.bddOne().PickOneMinterm(to_vector<0>(ckt.bdd_flops)) : ckt.get_minterm_from_string(initial_state));
   BDD inp;
 
   ofstream state_dump;
