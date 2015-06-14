@@ -249,13 +249,13 @@ std::string BDDCircuit::write_blif() const
   outstream << ".inputs ";
   for (auto& n: pi)
   {
-    outstream << n << " ";
+    outstream << " " << n;
   }
   outstream << endl;
   outstream << ".outputs ";
   for (auto& n: po)
   {
-      outstream << n << " ";
+      outstream << " " << n;
   }
   outstream << endl;
   for (auto& n: flops)
