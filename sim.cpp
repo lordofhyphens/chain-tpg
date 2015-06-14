@@ -1,10 +1,6 @@
 #undef _GLIBCXX_PARALLEL
-#include "cudd_ckt.h"
-#include "bdd_img.h"
-#include "bdd_util.h"
-#include "bdd_sim.h"
 #include "util/line_iterator.h"
-
+#include "bdd_circuit.h"
 #include <fstream> // fstream needs to be declared before cudd
 #include <cudd.h>
 #include <dddmp.h>
@@ -30,13 +26,15 @@ int main(int argc, char* const argv[])
   int support_flag = 0;
   int explore_flag = 0;
   int level_flag = 1;
-  
+  int print_flag = 0;
+
   while (1)
   {
     static struct option long_options[] =
     {
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
+      {"print", no_argument,       &print_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
       {"nolevel",   no_argument,       &level_flag, 0},
       {"save",   no_argument,       &save_flag, 1},
@@ -84,6 +82,7 @@ int main(int argc, char* const argv[])
         break;
       case 'h':
         printf("Usage: %s (options) \n", argv[0]);
+        printf("\t--print : Print the circuit netlist to stdout and exit.");
         printf("\t--bench /path/to/ckt : A circuit to apply benchmarks.\n");
         printf("\t--verbose : Echo debugging statements to stderr\n");
         printf("\t--brief : Quiets debug messages. The default.\n");
@@ -109,45 +108,44 @@ int main(int argc, char* const argv[])
     std::cerr << __FILE__ << ": " <<"--bench argument is required.\n";
     exit(1);
   }
-// Initialize random number gens for C
+  // Initialize random number gens for C
   srand(time(NULL));
   Cudd_Srandom(time(NULL));
 
-  CUDD_Circuit ckt;
-  ckt.getManager().AutodynEnable(CUDD_REORDER_SIFT);
+  BDDCircuit ckt;
+  ckt.manager.AutodynEnable(CUDD_REORDER_SIFT);
 
   std::clog << "Loading circuit from file... ";
-  if (infile.find("level") != std::string::npos) 
-  {
-    std::clog << "presorted benchmark " << infile << " ";
-    ckt.load(infile.c_str());
-  } 
-  else if (infile.find("blif") != std::string::npos) 
+  if (infile.find("blif") != std::string::npos) 
   {
     std::clog << infile << "\n";
-    ckt.read_blif(infile.c_str(), level_flag);
+    ckt.read_blif(infile.c_str());
   }
-  else
+  else 
   {
-    std::clog << infile << "\n";
-    ckt.read_bench(infile.c_str());
+    exit(1);
   }
-  ckt.form_bdds();
+  if (print_flag)
+  {
+    std::cout << ckt.print() << "\n";
+    exit(0);
+  }
+  ckt.to_bdd();
 
   if (support_flag) {
     std::pair<int,int> biggest = std::make_pair(-1,-1);
-    for (int j = 0; j < ckt.dff.size(); j++)
+    for (int j = 0; j < ckt.flops.size(); j++)
     {
-      auto iter = ckt.dff.begin();
+      auto iter = ckt.bdd_flops.begin();
       for (int i = 0; i < j; i++)
       {
         iter++;
       }
       BDD support = iter->second.Support();
       int picount = 0;
-      for (auto v : ckt.pi_vars)
+      for (auto v : ckt.bdd_pi)
       {
-        if (ckt.getManager().bddIsPiVar(v) && support <= v)
+        if (ckt.manager.bddIsPiVar(v) && support <= v)
           picount++;
       }
       std::cout << j << " PI support " << picount<< "\n";
@@ -157,34 +155,34 @@ int main(int argc, char* const argv[])
     }
 
     std::cout << "Largest PI support DFF only " << biggest.first << ", count " << biggest.second<< "\n";
-    for (int j = 0; j < ckt.po.size(); j++)
+    for (int j = 0; j < ckt.bdd_po.size(); j++)
     {
-      auto iter = ckt.po.begin();
+      auto iter = ckt.bdd_po.begin();
       for (int i = 0; i < j; i++)
       {
         iter++;
       }
-      BDD support = iter->second.Support();
+      BDD support = iter->Support();
       int picount = 0;
-      for (auto v : ckt.pi_vars)
+      for (auto v : ckt.bdd_pi)
       {
-        if (ckt.getManager().bddIsPiVar(v) && support <= v)
+        if (ckt.manager.bddIsPiVar(v) && support <= v)
           picount++;
       }
 
       if (picount > biggest.second)
-        biggest = std::make_pair(j+ckt.dff.size(), picount);
+        biggest = std::make_pair(j+ckt.flops.size(), picount);
     }
     std::cout << "Largest PI support count (overall) " << biggest.first << ", count " << biggest.second<< "\n";
   }
 
-  BDD state = (initial_state == "" ? ckt.getManager().bddOne().PickOneMinterm(ckt.dff_vars) : ckt.get_minterm_from_string(initial_state));
+  BDD state = (initial_state == "" ? ckt.manager.bddOne().PickOneMinterm(to_vector<1>(ckt.bdd_flops)) : ckt.get_minterm_from_string(initial_state));
   BDD inp;
 
   ofstream state_dump;
   ofstream inp_dump;
   ofstream out_dump;
-  BDD visited = ckt.getManager().bddZero();
+  BDD visited = ckt.manager.bddZero();
 
   if (save_flag)
   {
@@ -196,53 +194,40 @@ int main(int argc, char* const argv[])
     std::clog << "Output sent to " << infile + "-outputs" << "\n";
   }
 
-  for (auto& pog : ckt.po)
-  {
-    out_dump << ckt.at(pog.first).name << " ";
-  }
-  out_dump << "\n";
   std::ifstream inpfile(inputs);
   auto inp_it = lines(inpfile).begin();
   if (inputs == "")
-    inp = ckt.getManager().bddOne().PickOneMinterm(ckt.pi_vars);
+    inp = ckt.manager.bddOne().PickOneMinterm(ckt.bdd_pi);
   else
   {
     inp = ckt.get_minterm_from_string(*inp_it); inp_it++;
   }
-     
-  if (save_flag)
-  {
-      state_dump << PrintCover(state);
-  }
 
   for (int i = 0; i < length; i++)
   {
-    if (save_flag)
-    {
-      inp_dump << PrintCover(inp);
-    }
-    auto a = bddsim(ckt, state, inp);
+    auto a = ckt.bddsim(state, inp);
     state = get<0>(a);
     if (save_flag)
     {
       out_dump << get<1>(a);
-      state_dump << PrintCover(state);
+      state_dump << PrintCover(get<0>(a));
+      inp_dump << PrintCover(inp);
     }
     else
       std::cout << get<1>(a);
 
     if (inputs == "")
     {
-      inp = ckt.getManager().bddOne().PickOneMinterm(ckt.pi_vars);
+      inp = ckt.manager.bddOne().PickOneMinterm(ckt.bdd_pi);
       if (explore_flag) 
       {
         visited += state;
-        auto a = bddsim(ckt, state, inp);
+        auto a = ckt.bddsim(state, inp);
         int l = 0;
         // try to get to a state we haven't visted yet if available
         while (l < 5000 && get<0>(a) < visited) {
-          inp = ckt.getManager().bddOne().PickOneMinterm(ckt.pi_vars);
-          a = bddsim(ckt, state, inp);
+          inp = ckt.manager.bddOne().PickOneMinterm(ckt.bdd_pi);
+          a = ckt.bddsim(state, inp);
           l++;
         }
       }

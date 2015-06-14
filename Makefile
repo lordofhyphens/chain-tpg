@@ -9,7 +9,7 @@ CUDDFLAGS:=-I$(CUDD)/include
 CPPUTEST_FLAGS:=-I$(CPPUTEST_HOME)/include 
 CPPUTEST_LIBS:=-lCppUTest -lCppUTestExt
 
-objs=getpis.o bdd_sim.o bdd_util.o bdd_img.o cudd_ckt.o
+objs=circuit.o logic.o bdd_circuit.o
 explore_objs=${objs} explore.o
 mutate_objs=${objs} mutate.o
 sim_objs=${objs} sim.o
@@ -39,7 +39,7 @@ sim: $(sim_objs)
 explore.o: explore.cpp cudd_ckt.h bdd_img.h 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 	
-sim.o: sim.cpp cudd_ckt.h bdd_img.h 
+sim.o: sim.cpp cudd_ckt.h bdd_img.h bdd_circuit.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 mutate.o: mutate.cpp cudd_ckt.h bdd_img.h 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
