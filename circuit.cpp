@@ -220,14 +220,24 @@ void Circuit::read_blif(const string& filename)
     }
 
     std::cerr << netlist.back().name() << "\n";
+    top_gate = std::find(netlist.begin(), netlist.end(), outname);
     top_gate->add_fanin(netlist.back().name());
     assert(top_gate->fin.back() == netlist.back().name());
   }
-  std::cerr <<std::find(netlist.cbegin(), netlist.cend(), "G241")->print() << "\n";
+
+  for (int i = 0; i < netlist.size(); i++)
+  {
+    if (netlist.at(i).type == LogicType::Unknown || netlist.at(i).type == LogicType::Buff || netlist.at(i).type == LogicType::DFF_in || netlist.at(i).type == LogicType::Not) continue;
+    if (netlist.at(i).fin.size() == 1)
+    {
+      auto tmp = std::find(netlist.begin(), netlist.end(), netlist.at(i).fin.at(0));
+      auto tmpname = netlist.at(i).name();
+      netlist.at(i) = std::move(*tmp);
+      netlist.at(i).name(tmpname);
+    }
+  }
   std::vector<LogicBlock> temp = std::move(netlist);
   temp.erase(std::remove_if(temp.begin(), temp.end(), [] (const LogicBlock& z) -> bool { return z.type == LogicType::Unknown;}), temp.end());
-  assert(std::find(temp.cbegin(), temp.cend(), "G241") != temp.cend());
-  std::cerr <<std::find(temp.cbegin(), temp.cend(), "G241")->print() << "\n";
   while (temp.size() > 0)
   {
     for (auto search = temp.begin(); search != temp.end(); search++)
