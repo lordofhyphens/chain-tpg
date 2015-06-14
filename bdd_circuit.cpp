@@ -98,6 +98,9 @@ void BDDCircuit::to_bdd()
     auto pos = (std::distance(netlist.begin(), std::find(netlist.begin(), netlist.end(), i)));
     bdd_po.emplace_back(bdd_netlist.at(pos));
   }
+  assert(flops.size() == bdd_flops.size());
+  assert(pi.size() == bdd_pi.size());
+  assert(po.size() == bdd_po.size());
 }
 
 BDD BDDCircuit::get_minterm_from_string(const std::string& minterm) 
