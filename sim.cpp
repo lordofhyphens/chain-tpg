@@ -27,6 +27,7 @@ int main(int argc, char* const argv[])
   int explore_flag = 0;
   int level_flag = 1;
   int print_flag = 0;
+  int clone_flag = 0;
 
   while (1)
   {
@@ -35,6 +36,7 @@ int main(int argc, char* const argv[])
       /* These options set a flag. */
       {"verbose", no_argument,       &verbose_flag, 1},
       {"print", no_argument,       &print_flag, 1},
+      {"clone", no_argument,       &clone_flag, 1},
       {"brief",   no_argument,       &verbose_flag, 0},
       {"nolevel",   no_argument,       &level_flag, 0},
       {"save",   no_argument,       &save_flag, 1},
@@ -131,6 +133,12 @@ int main(int argc, char* const argv[])
     exit(0);
   }
   ckt.to_bdd();
+  
+  if (clone_flag)
+  {
+    std::cout << ckt.write_blif();
+    exit(0);
+  }
 
   if (support_flag) {
     std::pair<int,int> biggest = std::make_pair(-1,-1);
