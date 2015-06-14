@@ -5,6 +5,7 @@
 using std::vector;
 using std::pair;
 using std::move;
+using std::endl;
 
 void BDDCircuit::to_bdd() 
 {
@@ -238,3 +239,117 @@ std::ostream& Cudd_bddStreamCover( DdManager *dd, DdNode *l, DdNode *u, std::ost
 
 } /* end of Cudd_bddPrintCover */
 
+std::string BDDCircuit::write_blif() const
+{ 
+  std::stringstream outstream;
+  outstream << ".model " << name() << endl;
+  outstream << ".inputs ";
+  for (auto& n: pi)
+  {
+    outstream << n << " ";
+  }
+  outstream << endl;
+  outstream << ".outputs ";
+  for (auto& n: po)
+  {
+      outstream << n << " ";
+  }
+  outstream << endl;
+  for (auto& n: flops)
+  {
+    outstream << ".latch " << n.second << " " << n.first << " 3" << endl;
+  }
+  for (auto func : {po, to_vector<1>(flops)})
+    for (auto& n: func)
+    {
+      auto g = std::find(netlist.cbegin(), netlist.cend(), n);
+      int pos = 0;
+
+      pos = std::distance(func.cbegin(), std::find(func.cbegin(), func.cend(), n));
+      BDD dd;
+      if (func == po)
+        dd = bdd_po.at(pos);
+      else
+        dd = bdd_flops.at(pos).second;
+      if (dd == DD()) continue;
+      auto Z = dd.Support();
+      auto bitstr_Z = PrintCover(Z);
+      outstream << ".names ";
+
+      for (int i = 0; i < bitstr_Z.size()-1; i++)
+      {
+        if (bitstr_Z[i] != '-')
+        {
+          if (i < pi.size())
+          {
+            outstream << pi[i] << " ";
+          } 
+          else
+          { 
+            std::cerr << i << " " << pi.size() << " " << flops.size() << "\n";
+            assert (i-pi.size() < flops.size());
+            outstream << flops.at(i-pi.size()).first << " ";
+          }
+        }
+      }
+
+      outstream << n << endl;
+
+      std::string tmp = PrintCover(dd);
+      auto it = bitstr_Z.cbegin();
+      tmp.erase(std::remove_if( std::begin(tmp), std::end(tmp),  [&it,&bitstr_Z] (const char c) -> bool { bool ret = (*(it++) == '-');if (c == '\n') it = bitstr_Z.cbegin(); return ret; } ), std::end(tmp));
+      auto strpos = tmp.find('\n');
+      while (strpos != std::string::npos)
+      {
+        tmp.insert(strpos, " 1");
+        strpos = tmp.find('\n', strpos+3);
+      }
+      
+      outstream << tmp;
+    }
+
+  outstream << ".end" << endl;
+  return outstream.str();
+}
+
+BDD BDDCircuit::PermuteFunction(const BDD& orig, const int diff)
+{
+  BDD result = orig;
+  vector<BDD> all_vars = to_vector<0>(bdd_flops);
+  all_vars.insert(all_vars.begin(), bdd_pi.begin(), bdd_pi.end() );
+
+  // remove enough minterms to get the distance
+  if (result == manager.bddOne())
+  {
+    for (int i = 0; i < diff; i++)
+    {
+      result -= result.PickOneMinterm(all_vars);
+    }
+  } 
+  else if (result == manager.bddZero())
+  {
+    for (int i = 0; i < diff; i++)
+    {
+      result += (manager.bddOne() - result).PickOneMinterm(all_vars);
+    }
+    return result;
+  }
+
+  std::default_random_engine generator;
+  std::bernoulli_distribution distribution(0.5);
+  BDD add = manager.bddZero();
+  BDD rem = manager.bddZero();
+  for (int i = 0; i < diff; i++) {
+    if (distribution(generator))
+    {
+      add += (manager.bddOne() - (add +result)).PickOneMinterm(all_vars);
+    }
+    else
+    {
+      rem += (result-rem).PickOneMinterm(all_vars);
+    }
+  }
+  result += add;
+  result -= rem;
+  return std::move(result);
+}

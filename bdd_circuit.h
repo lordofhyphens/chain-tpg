@@ -25,6 +25,8 @@ class BDDCircuit : public Circuit
     BDD get_minterm_from_string(const std::string& minterm);
     simout_t bddsim(const BDD& state, const BDD& inp);
     BDD random_pis() ;
+    BDD PermuteFunction(const BDD& orig, const int diff);
+    std::string write_blif() const;
 
     void to_bdd();
   private:
