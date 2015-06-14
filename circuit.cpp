@@ -10,6 +10,7 @@ using std::ifstream;
 using std::string;
 using std::get;
 using std::make_tuple;
+using std::make_pair;
 
 
 void conditional_emplace(string g, LogicType t) 
@@ -98,15 +99,16 @@ void Circuit::read_blif(const string& filename)
               {
                 netlist.emplace_back(src, LogicType::Unknown);
               }
-              flops.emplace_back(gname, src);
-              auto it = std::find(netlist.begin(), netlist.end(), LogicBlock(gname, LogicType::Unknown));
-              // check to make sure 
-              if (it == netlist.end()) 
+              auto flopvar = std::find(netlist.begin(), netlist.end(), gname);
+              if (flopvar == netlist.end())
+              {
                 netlist.emplace_back(gname, LogicType::DFF);
+              }
               else
               {
-                it->type = LogicType::DFF;
+                flopvar->type = LogicType::DFF;
               }
+              flops.emplace_back(gname, src);
             }
             break;
           default: 
@@ -160,14 +162,18 @@ void Circuit::read_blif(const string& filename)
       top_gate = std::find(netlist.begin(), netlist.end(), outname);
       if (top_gate == netlist.end())
       {
-        netlist.emplace_back(LogicBlock{outname,LogicType::And});
+        netlist.emplace_back(LogicBlock{outname,LogicType::Or});
         top_gate = netlist.end() - 1;
       }
-      top_gate->type = LogicType::Or;
       get<0>(products) = 0;
       if (minterm_list.size() == 1) {
-        top_gate->type = LogicType::Buff;
-      }
+        if (top_gate->type != LogicType::DFF)
+        {
+          top_gate->type = LogicType::Buff;
+        }
+      } 
+      else
+        top_gate->type = LogicType::Or;
       continue;
     }
     // otherwise, we are tracking minterms from a previous gate
@@ -221,7 +227,6 @@ void Circuit::read_blif(const string& filename)
       netlist.back().add_fanin(*fin_node); 
     }
 
-    std::cerr << netlist.back().name() << "\n";
     top_gate = std::find(netlist.begin(), netlist.end(), outname);
     top_gate->add_fanin(netlist.back().name());
     assert(top_gate->fin.back() == netlist.back().name());
@@ -238,12 +243,15 @@ void Circuit::read_blif(const string& filename)
       netlist.at(i).name(tmpname);
     }
   }
+
+  assert(netlist.size() > 0);
   std::vector<LogicBlock> temp = std::move(netlist);
   temp.erase(std::remove_if(temp.begin(), temp.end(), [] (const LogicBlock& z) -> bool { return z.type == LogicType::Unknown;}), temp.end());
   while (temp.size() > 0)
   {
     for (auto search = temp.begin(); search != temp.end(); search++)
     {
+      assert(!(std::find(netlist.begin(), netlist.end(), *search) != netlist.end() && std::find(temp.begin(), temp.end(), *search) != temp.end())) ;
       if (search->type == LogicType::DFF || search->type == LogicType::Input)
       {
         netlist.push_back(std::move(*search));
