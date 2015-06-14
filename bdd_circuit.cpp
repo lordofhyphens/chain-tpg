@@ -289,7 +289,6 @@ std::string BDDCircuit::write_blif() const
           } 
           else
           { 
-            std::cerr << i << " " << pi.size() << " " << flops.size() << "\n";
             assert (i-pi.size() < flops.size());
             outstream << flops.at(i-pi.size()).first << " ";
           }
