@@ -265,9 +265,7 @@ std::string BDDCircuit::write_blif() const
   for (auto func : {po, to_vector<1>(flops)})
     for (auto& n: func)
     {
-      int pos = 0;
-
-      pos = std::distance(func.cbegin(), std::find(func.cbegin(), func.cend(), n));
+      const int pos = std::distance(func.cbegin(), std::find(func.cbegin(), func.cend(), n));
       BDD dd;
       if (func == po)
         dd = bdd_po.at(pos);
