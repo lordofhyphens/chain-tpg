@@ -30,9 +30,10 @@ class LogicBlock
 
     std::vector<std::string> fin;
 
-    inline size_t nfi() { return fin.size(); }
+    inline size_t nfi() const { return fin.size(); }
     bool operator<(const LogicBlock& z) const { return level < z.level || (level == z.level && type < z.type) || (level == z.level && type == z.type && _name < z._name);}
     bool operator==(const LogicBlock& z) const { return _name == z._name && fin == z.fin; }
+    bool operator==(const std::pair<std::string, LogicType>& other) { return _name == other.first && type == other.second; }
     bool operator==(const std::string& z) const { return _name == z; }
 
     LogicBlock(LogicBlock&& other) = default; 
