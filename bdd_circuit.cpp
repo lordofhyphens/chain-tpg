@@ -265,7 +265,6 @@ std::string BDDCircuit::write_blif() const
   for (auto func : {po, to_vector<1>(flops)})
     for (auto& n: func)
     {
-      auto g = std::find(netlist.cbegin(), netlist.cend(), n);
       int pos = 0;
 
       pos = std::distance(func.cbegin(), std::find(func.cbegin(), func.cend(), n));
