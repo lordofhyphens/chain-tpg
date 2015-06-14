@@ -176,6 +176,7 @@ int main(int argc, char* const argv[])
   int total_mutants = 0;
 
   std::cerr << get<0>(trigger_rate) << "," <<  get<1>(trigger_rate) << "\n";
+  vector<BDD> flopout = to_vector<1>(ckt.bdd_flops);
 
   while (total_mutants< mutant_count && !abort)
   {
@@ -210,7 +211,7 @@ int main(int argc, char* const argv[])
     {
       // convention, treat as list of dffs, pos in that order
       // just iterate through the map
-      if (function > ckt.bdd_flops.size() + ckt.po.size())
+      if (function > ckt.bdd_flops.size() + ckt.bdd_po.size())
       {
         std::cerr << "Requested function out of range\n";
         exit(1);
@@ -229,13 +230,12 @@ int main(int argc, char* const argv[])
           tmp++;
         std::cerr << "Mutating function " << tmp->second << "\n";
       }
-
-      auto func = (function < ckt.flops.size() ? to_vector<1>(ckt.bdd_flops).cbegin() : ckt.bdd_po.cbegin());
+      auto func = (function < ckt.flops.size() ? flopout.begin() : ckt.bdd_po.begin());
       // move iterator, as only ++ is defined
-      for (auto z = (function < ckt.flops.size() ? function : function - ckt.flops.size())+1; z >0; z--)
+      for (auto z = (function < ckt.flops.size() ? function : function - (ckt.flops.size()+1)); z >0; z--)
         func++;
       auto last = mutants[j].size(); 
-
+      assert(!(func->IsZero()));
       mutants[0].push_back(ckt.PermuteFunction(func->Constrain(state),variance));
 
       std::sort(mutants[0].begin(), mutants[0].end());
