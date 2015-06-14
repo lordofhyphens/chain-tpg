@@ -31,10 +31,10 @@ class BDDCircuit : public Circuit
     vector<BDD> bdd_netlist; 
 };
 
-template <int i>
-std::vector<BDD> to_vector(const vector<std::pair<BDD,BDD>> &pairvec) 
+template <int i, class T>
+std::vector<T> to_vector(const vector<std::pair<T,T>> &pairvec) 
 {
-  auto result = vector<BDD>();
+  auto result = vector<T>();
   for (auto& z : pairvec)
   {
     result.push_back(std::get<i>(z));
