@@ -72,6 +72,8 @@ void Circuit::read_blif(const string& filename)
     if (line.find("#", 0) == 0) continue;
     if (line.find(".model", 0) == 0) 
     {
+      auto pos = line.find(" ", 0);
+      _name = line.substr(pos);
       continue;
     }
     if (line.find(".latch", 0) == 0)

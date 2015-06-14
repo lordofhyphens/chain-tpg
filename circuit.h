@@ -19,6 +19,7 @@ class Circuit
     Circuit(const string& name) : _name(name) {}
     Circuit() : _name("") {}
     string name() const { return _name; }
+    string name(string n) { _name = n; return _name; }
     vector<std::pair<string, string>> flops;
     vector<string> pi;
     vector<string> po;
