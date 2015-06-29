@@ -50,6 +50,11 @@ std::string normalize(std::string in)
     auto pos = t.find("  ", 0);
     t = t.erase(pos, 1);
   }
+  while (t.find("\\") != std::string::npos)
+  {
+    auto pos = t.find("\\", 0);
+    t = t.erase(pos, 1);
+  }
   return t;
 }
 
