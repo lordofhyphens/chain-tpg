@@ -132,7 +132,9 @@ int main(int argc, char* const argv[])
     std::cout << ckt.print() << "\n";
     exit(0);
   }
+  std::cerr << "Finished reading netlist into memory." << std::endl;
   ckt.to_bdd();
+  std::cerr << "Finished converting to BDDs.\n";
   
   if (clone_flag)
   {

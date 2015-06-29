@@ -79,7 +79,10 @@ void BDDCircuit::to_bdd()
     auto pos1 = (std::distance(netlist.begin(), std::find(netlist.begin(), netlist.end(), i.first)));
     auto pos2 = (std::distance(netlist.begin(), std::find(netlist.begin(), netlist.end(), i.second)));
     bdd_flops.emplace_back(bdd_netlist.at(pos1), bdd_netlist.at(pos2));
-    assert(!(bdd_flops.back().second.IsZero()));
+    bdd_flops.back().second = bdd_netlist.at(pos2);
+    std::cerr << netlist.at(pos1).print() << " " << netlist.at(pos2).print() << "\n\n";
+
+//    assert(!(bdd_flops.back().second.IsZero()));
   }
 
   // iterate through the rest of the netlist, ignoring DFFs and Inputs
@@ -89,7 +92,7 @@ void BDDCircuit::to_bdd()
   {
     auto pos = (std::distance(netlist.begin(), std::find(netlist.begin(), netlist.end(), i)));
     bdd_po.emplace_back(bdd_netlist.at(pos));
-    assert(!bdd_po.back().IsZero());
+    //assert(!bdd_po.back().IsZero());
   }
   assert(flops.size() == bdd_flops.size());
   assert(pi.size() == bdd_pi.size());

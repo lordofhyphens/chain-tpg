@@ -50,11 +50,7 @@ std::string normalize(std::string in)
     auto pos = t.find("  ", 0);
     t = t.erase(pos, 1);
   }
-  while (t.find("\\") != std::string::npos)
-  {
-    auto pos = t.find("\\", 0);
-    t = t.erase(pos, 1);
-  }
+
   return t;
 }
 
@@ -74,6 +70,8 @@ void Circuit::read_blif(const string& filename)
   for( auto& line_orig: lines(file) )
   {
     auto line = normalize(line_orig);
+    std::cout << line << std::endl;
+    top_gate = std::find(netlist.begin(), netlist.end(), outname);
     // check for a leading #
     if (line.find("#", 0) == 0) continue;
     if (line.find(".model", 0) == 0) 
@@ -192,13 +190,21 @@ void Circuit::read_blif(const string& filename)
       {
         case '0': // inverted var/gate appears
           {
+            if (minterm_list.size() == 1) { // this is the only gate that it is, so it's a NOT gate
+              auto it = std::find(netlist.cbegin(), netlist.cend(), *term_it);
+              if (it == netlist.cend())
+                netlist.emplace_back(*term_it, LogicType::Unknown);
+              top_gate->type = LogicType::Not;
+              product.emplace_back(static_cast<string>(*term_it));
+              break;
+            }
             auto it = std::find(netlist.cbegin(), netlist.cend(), *term_it + "_NOT");
             if (it == netlist.cend())
             {
               netlist.emplace_back(*term_it+"_NOT", LogicType::Not);
               netlist.back().add_fanin(*term_it);
             }
-             
+
             product.emplace_back(static_cast<string>(*term_it+"_NOT"));
             break;
           }
@@ -220,6 +226,7 @@ void Circuit::read_blif(const string& filename)
       term_it++;
       fin_node = std::find(netlist.cbegin(), netlist.cend(), *term_it);
     }
+    top_gate = std::find(netlist.begin(), netlist.end(), outname);
     if (product.size() == 1) {
       fin_node = std::find(netlist.cbegin(), netlist.cend(), product.at(0));
       assert(fin_node != netlist.cend());
@@ -232,7 +239,6 @@ void Circuit::read_blif(const string& filename)
       netlist.back().add_fanin(*fin_node); 
     }
 
-    top_gate = std::find(netlist.begin(), netlist.end(), outname);
     top_gate->add_fanin(netlist.back().name());
     assert(top_gate->fin.back() == netlist.back().name());
   }
@@ -248,10 +254,11 @@ void Circuit::read_blif(const string& filename)
       netlist.at(i).name(tmpname);
     }
   }
-
   assert(netlist.size() > 0);
   std::vector<LogicBlock> temp = std::move(netlist);
   temp.erase(std::remove_if(temp.begin(), temp.end(), [] (const LogicBlock& z) -> bool { return z.type == LogicType::Unknown;}), temp.end());
+  std::sort(temp.begin(), temp.end());
+  temp.erase(std::unique(temp.begin(),temp.end()), temp.end());
   while (temp.size() > 0)
   {
     for (auto search = temp.begin(); search != temp.end(); search++)
@@ -265,7 +272,6 @@ void Circuit::read_blif(const string& filename)
       }
       if (search->fin.size() == 0)
       {
-        // remove 
         auto junk = std::move(*search);
         continue;
       }
@@ -275,7 +281,7 @@ void Circuit::read_blif(const string& filename)
       for (auto& f : search->fin) 
       {
         auto it = std::find(netlist.cbegin(), netlist.cend(), f);
-        if (it == netlist.end())
+        if (it == netlist.cend())
           do_move = false;
         else 
           max_level = (it->level < max_level ? max_level : it->level);
@@ -286,7 +292,7 @@ void Circuit::read_blif(const string& filename)
         netlist.push_back(std::move(*search));
       }
     }
-    temp.erase(std::remove_if(temp.begin(), temp.end(), [] (const LogicBlock& z) -> bool { return z.placed || z.name() == "";}), temp.end());
+    temp.erase(std::remove_if(temp.begin(), temp.end(), [] (const LogicBlock& z) -> bool { return z.name() == "";}), temp.end());
 
   }
   std::sort(netlist.begin(), netlist.end());
